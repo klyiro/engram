@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Brain, Paperclip, Square } from "lucide-react";
+import Link from "next/link";
+import useSWR from "swr";
+import { ArrowRight, ArrowUp, Brain, Paperclip, Square } from "lucide-react";
 import { Markdown } from "@/components/markdown";
 import { CURATOR_MODELS, DEFAULT_CURATOR_MODEL } from "@/lib/models";
+import { fetcher } from "@/lib/client";
+import { ActivityList, type ActivityEntry } from "@/components/activity-list";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -23,6 +27,7 @@ export function CuratorChat() {
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: activityData } = useSWR<{ activity: ActivityEntry[] }>("/api/activity?limit=8", fetcher, { refreshInterval: 15000 });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -104,6 +109,93 @@ export function CuratorChat() {
     setInput((v) => `Attached file \`${file.name}\`:\n\n\`\`\`\n${content}\n\`\`\`\n\n${v}`);
   }
 
+  const modelPicker = (
+    <Select value={model} onValueChange={setModel}>
+      <SelectTrigger size="sm" className="w-auto text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {CURATOR_MODELS.map((m) => (
+          <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+  const thinkingToggle = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setThinking((t) => !t)}
+      title="Extended thinking"
+      className={thinking ? "border-primary/40 text-foreground" : "text-muted-foreground"}
+    >
+      <span className={`size-1.5 rounded-full ${thinking ? "bg-emerald-500" : "bg-muted-foreground/40"}`} /> thinking
+    </Button>
+  );
+  const attachButton = (
+    <Button asChild variant="outline" size="icon" className="shrink-0 cursor-pointer text-muted-foreground" title="Attach a text file">
+      <label>
+        <Paperclip size={15} />
+        <input type="file" accept=".md,.txt,.json,.csv,.ts,.tsx,.js,.py,text/*" className="hidden" onChange={attach} />
+      </label>
+    </Button>
+  );
+  const recent = activityData?.activity ?? [];
+
+  // Landing state — before a conversation starts: a titled hero + composer, with recent vault activity below.
+  if (messages.length === 0 && !streaming) {
+    return (
+      <div className="scrollbar-none h-full overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-8 py-14">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">The Curator</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Ask your brain.</h1>
+          <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground">
+            A chat agent grounded in your notes. It searches and reads your vault to answer — with links
+            back to the source — and helps you think. It never changes your notes.
+          </p>
+
+          <div className="mt-8 rounded-2xl border border-border bg-card/40 p-2.5 transition-colors focus-within:border-ring">
+            <textarea
+              autoFocus
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Ask about anything in your vault…"
+              rows={3}
+              className="scrollbar-none max-h-56 min-h-[4.5rem] w-full resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <div className="flex items-center gap-2 px-1 pb-0.5">
+              {attachButton}
+              {modelPicker}
+              {thinkingToggle}
+              <Button onClick={send} disabled={!input.trim()} size="icon" className="ml-auto shrink-0" title="Send">
+                <ArrowUp size={16} />
+              </Button>
+            </div>
+          </div>
+          {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+
+          {recent.length > 0 && (
+            <section className="mt-12">
+              <div className="mb-1 flex items-center justify-between">
+                <h2 className="text-sm font-medium">Recent activity</h2>
+                <Link href="/activity" className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                  View all <ArrowRight size={12} />
+                </Link>
+              </div>
+              <ActivityList entries={recent} />
+            </section>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Controls */}
@@ -111,25 +203,8 @@ export function CuratorChat() {
         <Brain size={15} className="text-muted-foreground" />
         <span className="text-sm font-medium">Curator</span>
         <div className="ml-auto flex items-center gap-2">
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger size="sm" className="w-auto text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURATOR_MODELS.map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setThinking((t) => !t)}
-            title="Extended thinking"
-            className={thinking ? "border-primary/40 text-foreground" : "text-muted-foreground"}
-          >
-            <span className={`size-1.5 rounded-full ${thinking ? "bg-emerald-500" : "bg-muted-foreground/40"}`} /> thinking
-          </Button>
+          {modelPicker}
+          {thinkingToggle}
           {messages.length > 0 && (
             <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => { setMessages([]); setError(""); }}>
               Clear
@@ -141,13 +216,6 @@ export function CuratorChat() {
       {/* Messages */}
       <div ref={scrollRef} className="scrollbar-none flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-2xl space-y-4">
-          {messages.length === 0 && !streaming && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              Ask the Curator about your brain. It reads your notes to answer — try
-              <span className="text-foreground"> “what did we decide about pricing?”</span> or
-              <span className="text-foreground"> “summarize the Shroom Shop thread.”</span>
-            </div>
-          )}
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
@@ -178,12 +246,7 @@ export function CuratorChat() {
       {/* Composer */}
       <div className="shrink-0 border-t border-border px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <Button asChild variant="outline" size="icon" className="shrink-0 cursor-pointer text-muted-foreground" title="Attach a text file">
-            <label>
-              <Paperclip size={15} />
-              <input type="file" accept=".md,.txt,.json,.csv,.ts,.tsx,.js,.py,text/*" className="hidden" onChange={attach} />
-            </label>
-          </Button>
+          {attachButton}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

@@ -1,58 +1,65 @@
 # Deploying Cortex
 
-Cortex deploys as one container. The **app** repo is this repo; the **vault** is a separate
-remote repo the app clones + git-syncs into a volume. No machine keeps a local vault copy.
+Cortex deploys as one container (this repo). Vault repos are **connected in the dashboard**
+(Workspaces) — no repo lives in this repo, and no laptop keeps a vault copy. The active
+workspace is what the dashboard shows and what agents read/write.
 
 ## 1. Push this repo to GitHub
-Already a git repo. Create a remote (private is fine) and push `main`.
+Already a git repo — create a remote and push `main`.
 
-## 2. Create the vault repo (if you don't have one)
-A separate repo of markdown (e.g. `youruser/second-brain`). Cortex clones it into its volume.
-Give it the folders in `SCHEMA.md` (`clients/`, `decisions/`, …).
+## 2. Dashboard login — Google OAuth
+1. Google Cloud Console → Credentials → Create OAuth client ID → Web application.
+2. Redirect URI: `https://<your-app>.up.railway.app/api/auth/callback`
+3. Copy the Client ID + Secret.
 
-## 3. Google OAuth (dashboard login)
-1. Google Cloud Console → **APIs & Services → Credentials → Create OAuth client ID** → **Web application**.
-2. **Authorized redirect URI:** `https://<your-app>.up.railway.app/api/auth/callback`
-3. Copy the **Client ID** and **Client secret**.
-
-## 4. Railway
-1. **New Project → Deploy from GitHub repo** → this repo. It builds via the root `Dockerfile`.
+## 3. Railway
+1. **New Project → Deploy from GitHub repo** → this repo (builds via root `Dockerfile`).
 2. **Add a Volume**, mount path `/data`.
 3. **Variables:**
 
 | Variable | Value |
 |---|---|
 | `NEXT_PUBLIC_APP_NAME` | e.g. `Klyiro Brain` |
-| `VAULT_DIR` | `/data` |
-| `GIT_REMOTE` | the vault repo URL (`https://github.com/youruser/second-brain.git`) |
-| `GIT_TOKEN` | GitHub token with **push** access to the vault repo |
-| `GIT_SYNC_ENABLED` | `true` |
+| `CORTEX_DATA_DIR` | `/data` (app state + vault clones live here) |
+| `GIT_SYNC_ENABLED` | `true` (auto commit+push the active vault) |
 | `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` | commit identity |
-| `AUTH_SECRET` | `openssl rand -base64 32` |
+| `AUTH_SECRET` | `openssl rand -base64 32`, or Railway "Generate" |
 | `APP_URL` | `https://<your-app>.up.railway.app` |
-| `ALLOWED_EMAILS` | comma-separated team emails |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from step 3 |
-| `MCP_TOKEN` | a long random string (agents send this) |
-| `ANTHROPIC_API_KEY` | for `brain_capture` (optional) |
+| `ALLOWED_EMAILS` | comma-separated team emails (Google login) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from step 2 |
+| `ANTHROPIC_API_KEY` + `HARNESS_ENABLED=true` | optional, for `brain_capture` |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional — see step 5 (OAuth path) |
 
-4. Deploy. On first boot the app clones `GIT_REMOTE` into `/data`. The dashboard is gated by
-   Google login (allowlist); the MCP is gated by `MCP_TOKEN`.
+Deploy, then sign in with Google.
 
-## 5. Connect agents to the MCP
-**Claude Code:**
+## 4. Connect a vault repo (in the dashboard → Workspaces)
+Two ways — pick one:
+
+- **URL + token (zero setup):** paste the repo URL + a GitHub token with access. Works with
+  no GitHub OAuth app — the simplest path, especially for self-hosting.
+- **Connect GitHub (nicer):** if you set the GitHub OAuth app in step 5, click *Connect GitHub*
+  and pick a repo from a list.
+
+Add repos, switch the active one, remove — all in the UI. MCP tokens (per teammate/agent) are
+created on the **Connect** page.
+
+## 5. (Optional) GitHub OAuth app — for the "Connect GitHub" flow
+Each deployment uses **its own** GitHub OAuth app (secrets can't be shared, and the callback is
+host-specific — so there's no shared central app for self-hosters):
+1. GitHub → Settings → Developer settings → **OAuth Apps → New OAuth App**.
+2. **Authorization callback URL:** `https://<your-app>.up.railway.app/api/github/callback`
+3. Set `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in Railway.
+
+Skip this entirely if you use the URL + token path in step 4.
+
+## 6. Connect agents to the MCP
+Dashboard → **Connect** → copy the command. Agents always hit the same endpoint and only ever
+see the **active** vault:
 ```bash
 claude mcp add --transport http cortex https://<your-app>.up.railway.app/api/mcp \
-  --header "Authorization: Bearer $MCP_TOKEN"
-```
-**Hermes** (`~/.hermes/config.yaml`):
-```yaml
-mcp_servers:
-  cortex:
-    url: https://<your-app>.up.railway.app/api/mcp
-    headers:
-      Authorization: "Bearer <MCP_TOKEN>"
+  --header "Authorization: Bearer <token from the Connect page>"
 ```
 
 ## Notes
-- **No auth locally:** leave `AUTH_SECRET` empty (or `AUTH_DISABLED=true`) and the dashboard is open.
-- **Security:** never expose the MCP without `MCP_TOKEN`. Rotate `GIT_TOKEN` if leaked.
+- **No auth locally:** leave `AUTH_SECRET` empty (or `AUTH_DISABLED=true`) and the dashboard is open; the MCP is open until a token exists.
+- Git tokens are stored **encrypted** at rest (keyed off `AUTH_SECRET`); token hashes and vault clones live under `CORTEX_DATA_DIR`, never in a vault repo.

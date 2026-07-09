@@ -31,6 +31,7 @@ export default function WorkspacesPage() {
   const { mutate } = useSWRConfig();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [manual, setManual] = useState({ url: "", token: "", name: "" });
 
   const repos = reposData?.repos ?? [];
   const addedNames = new Set(repos.map((r) => r.fullName));
@@ -51,6 +52,31 @@ export default function WorkspacesPage() {
       setBusy(null);
     }
   }
+  async function addManual() {
+    if (!manual.url.trim()) return;
+    setBusy("manual");
+    setErr("");
+    try {
+      const res = await fetch("/api/repos", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cloneUrl: manual.url.trim(),
+          token: manual.token.trim() || undefined,
+          name: manual.name.trim() || undefined,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) setErr(d.error || "add failed");
+      else {
+        setManual({ url: "", token: "", name: "" });
+        refresh(mutate);
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function switchTo(id: string) {
     await fetch("/api/repos/active", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
     refresh(mutate);
@@ -123,9 +149,48 @@ export default function WorkspacesPage() {
           )}
         </section>
 
+        <section className="mt-8 space-y-2">
+          <h2 className="text-sm font-medium">Add a repo by URL + token</h2>
+          <p className="text-sm text-muted-foreground">
+            Paste a repo URL and a GitHub token with access to it. Works without connecting GitHub — the
+            zero-setup path for self-hosting.
+          </p>
+          {err && <p className="text-xs text-destructive">{err}</p>}
+          <div className="space-y-2">
+            <input
+              value={manual.url}
+              onChange={(e) => setManual((m) => ({ ...m, url: e.target.value }))}
+              placeholder="https://github.com/you/vault.git"
+              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <input
+              value={manual.token}
+              onChange={(e) => setManual((m) => ({ ...m, token: e.target.value }))}
+              type="password"
+              placeholder="GitHub token with repo access (for private repos / push)"
+              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <div className="flex gap-2">
+              <input
+                value={manual.name}
+                onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
+                placeholder="name (optional)"
+                className="w-56 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={addManual}
+                disabled={busy === "manual"}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {busy === "manual" ? "Adding…" : "Add repo"}
+              </button>
+            </div>
+          </div>
+        </section>
+
         {gh?.connected && (
           <section className="mt-8 space-y-2">
-            <h2 className="text-sm font-medium">Add a repo</h2>
+            <h2 className="text-sm font-medium">Add from GitHub</h2>
             {err && <p className="text-xs text-destructive">{err}</p>}
             <div className="scrollbar-none max-h-96 overflow-y-auto overflow-hidden rounded-lg border border-border">
               <table className="w-full text-sm">

@@ -1,13 +1,11 @@
 "use client";
 
 import useSWR, { useSWRConfig } from "swr";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Network, FilePlus, Zap, Plug, Settings } from "lucide-react";
+import { Search, FilePlus, Zap } from "lucide-react";
 import { fetcher, type TreeNode } from "@/lib/client";
 import { Tree } from "./tree";
-import { ThemeToggle } from "./theme-toggle";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const FALLBACK_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Engram";
@@ -104,9 +102,6 @@ export function Sidebar() {
         <button onClick={() => { setCreating((c) => !c); setCapturing(false); }} title="New note" className={iconBtn}>
           <FilePlus size={14} />
         </button>
-        <Link href="/graph" title="Graph" className={iconBtn}>
-          <Network size={14} />
-        </Link>
       </div>
 
       {creating && (
@@ -153,33 +148,13 @@ export function Sidebar() {
         </div>
       )}
 
-      <nav className="scrollbar-none flex-1 overflow-y-auto px-1">
+      <nav className="scrollbar-none flex-1 overflow-y-auto px-1 pb-2">
         {data ? (
           <Tree tree={data.tree} activePath={activePath} />
         ) : (
           <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
         )}
       </nav>
-
-      <div className="flex items-center justify-between border-t border-border px-2 py-1.5">
-        <div className="flex items-center gap-1">
-          <Link
-            href="/connect"
-            title="Connect an agent"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Plug size={14} />
-          </Link>
-          <Link
-            href="/settings"
-            title="Settings"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Settings size={14} />
-          </Link>
-        </div>
-        <ThemeToggle />
-      </div>
     </aside>
   );
 }

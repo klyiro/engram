@@ -58,7 +58,7 @@ export default function ConnectPage() {
       const res = await fetch("/api/tokens", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() || "teammate" }),
+        body: JSON.stringify({ name: newName.trim() || "token" }),
       });
       const d = await res.json();
       if (d.token) setJustCreated({ name: d.name, token: d.token });
@@ -76,6 +76,8 @@ export default function ConnectPage() {
     mutate("/api/features");
   }
 
+  const tokens = tokData?.tokens ?? [];
+
   return (
     <div className="scrollbar-none h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-10">
@@ -85,29 +87,28 @@ export default function ConnectPage() {
           local copy of the vault. MCP connection is configured on the agent, not here.
         </p>
 
-        <section className="mt-8 space-y-2">
-          <h2 className="text-sm font-medium">MCP endpoint</h2>
-          <Copyable text={mcp} />
-        </section>
-
+        {/* Token management first */}
         <section className="mt-8 space-y-3">
-          <h2 className="text-sm font-medium">Team access tokens</h2>
-          <p className="text-sm text-muted-foreground">
-            Give each teammate or agent its own MCP key. Shown once at creation — copy it then. Revoke
-            anytime. (Dashboard login is separate, set via env on deploy.)
-          </p>
+          <div>
+            <h2 className="text-sm font-medium">Access tokens</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Give each teammate or agent its own MCP key. Shown once at creation — copy it then.
+              Revoke anytime. (Dashboard login is separate, set via env on deploy.)
+            </p>
+          </div>
+
           <div className="flex gap-2">
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && create()}
-              placeholder="name (e.g. Timur)"
-              className="w-56 rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground"
+              placeholder="Token name"
+              className="w-56 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
             />
             <button
               onClick={create}
               disabled={creating}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               {creating ? "Creating…" : "Create token"}
             </button>
@@ -122,26 +123,35 @@ export default function ConnectPage() {
             </div>
           )}
 
-          {tokData?.tokens && tokData.tokens.length > 0 ? (
-            <ul className="divide-y divide-border rounded-lg border border-border">
-              {tokData.tokens.map((t) => (
-                <li key={t.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span>
-                    {t.name}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {new Date(t.created).toLocaleDateString()}
-                    </span>
-                  </span>
-                  <button
-                    onClick={() => revoke(t.id)}
-                    title="Revoke"
-                    className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-destructive"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {tokens.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Name</th>
+                    <th className="px-3 py-2 font-medium">Created</th>
+                    <th className="px-3 py-2 text-right font-medium">Revoke</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokens.map((t) => (
+                    <tr key={t.id} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2">{t.name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{new Date(t.created).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => revoke(t.id)}
+                          title="Revoke"
+                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground">
               No tokens yet — the MCP is {needsToken ? "gated by env MCP_TOKEN" : "open (local)"}.
@@ -150,6 +160,11 @@ export default function ConnectPage() {
         </section>
 
         <section className="mt-8 space-y-2">
+          <h2 className="text-sm font-medium">MCP endpoint</h2>
+          <Copyable text={mcp} />
+        </section>
+
+        <section className="mt-6 space-y-2">
           <h2 className="text-sm font-medium">Claude Code</h2>
           <Copyable text={claudeCmd} />
           <p className="text-xs text-muted-foreground">Run in a terminal; then the brain_* tools are available in your Claude Code sessions.</p>

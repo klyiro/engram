@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Columns2, Eye, Pencil } from "lucide-react";
 import { fetcher, folderColor, type Note, type NoteMeta } from "@/lib/client";
 import { cn } from "@/lib/utils";
+import { recordView } from "@/lib/recents";
 import { Markdown } from "./markdown";
 
 type Mode = "preview" | "edit" | "split";
@@ -82,6 +83,11 @@ export function NoteView({ path }: { path: string }) {
   }, [path]);
 
   const note = data?.note;
+
+  // Track this note in the browser's "recently viewed" list (localStorage only).
+  useEffect(() => {
+    if (note?.title) recordView(path, note.title, path.includes("/") ? path.split("/")[0] : "root");
+  }, [path, note?.title]);
 
   async function persist(content: string) {
     setSave("saving");

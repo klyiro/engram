@@ -8,6 +8,7 @@ import { Markdown } from "@/components/markdown";
 import { CURATOR_MODELS, DEFAULT_CURATOR_MODEL } from "@/lib/models";
 import { fetcher } from "@/lib/client";
 import { ActivityList, type ActivityEntry } from "@/components/activity-list";
+import { RecentNotes } from "@/components/recent-notes";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -180,17 +181,20 @@ export function CuratorChat() {
           </div>
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
 
-          {recent.length > 0 && (
-            <section className="mt-12">
-              <div className="mb-1 flex items-center justify-between">
-                <h2 className="text-sm font-medium">Recent activity</h2>
-                <Link href="/activity" className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                  View all <ArrowRight size={12} />
-                </Link>
-              </div>
-              <ActivityList entries={recent} />
-            </section>
-          )}
+          <div className="mt-12 space-y-8">
+            <RecentNotes heading="Jump back in" />
+            {recent.length > 0 && (
+              <section>
+                <div className="mb-1 flex items-center justify-between">
+                  <h2 className="text-sm font-medium">Recent activity</h2>
+                  <Link href="/activity" className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+                    View all <ArrowRight size={12} />
+                  </Link>
+                </div>
+                <ActivityList entries={recent} />
+              </section>
+            )}
+          </div>
         </div>
       </div>
     );

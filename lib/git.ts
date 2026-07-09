@@ -1,6 +1,7 @@
 import { simpleGit } from "simple-git";
-import { activeVaultDir } from "@/lib/repos";
+import { activeVaultDir, getActive } from "@/lib/repos";
 import { gitAuthor, gitSyncEnabled } from "@/lib/settings";
+import { rebuildIndex } from "@/lib/vault/store";
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let pending: string[] = [];
@@ -66,4 +67,39 @@ export async function syncStatus() {
   } catch {
     return { enabled: true as const, error: true };
   }
+}
+
+/**
+ * Pull remote commits into the ACTIVE vault clone (rebase, autostash). This is how changes
+ * pushed to the repo from OUTSIDE Engram (an agent, a teammate, a direct git push) show up —
+ * the chokidar watcher then rebuilds the index. Independent of the push side; a fresh
+ * connected workspace should always reflect its remote. No-op for the sample/local vault.
+ */
+export async function pullActive(): Promise<{ ok: boolean; changed: boolean; error?: string }> {
+  const active = getActive();
+  if (!active) return { ok: true, changed: false };
+  const dir = activeVaultDir();
+  try {
+    const g = simpleGit(dir);
+    const before = await g.revparse(["HEAD"]).catch(() => "");
+    await g.fetch();
+    await g.pull(["--rebase", "--autostash"]);
+    const after = await g.revparse(["HEAD"]).catch(() => "");
+    const changed = before !== after;
+    if (changed) rebuildIndex();
+    return { ok: true, changed };
+  } catch (e) {
+    console.error("[git] pull failed", e);
+    return { ok: false, changed: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+let pullTimer: ReturnType<typeof setInterval> | null = null;
+/** Poll the remote for the active vault so the brain stays fresh without a redeploy. */
+export function startPullLoop(intervalMs = 30_000): void {
+  if (pullTimer) return;
+  pullTimer = setInterval(() => {
+    pullActive().catch(() => {});
+  }, intervalMs);
+  pullTimer.unref?.();
 }

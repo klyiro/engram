@@ -29,6 +29,28 @@ export interface Tool {
 
 const s = (description: string) => ({ type: "string", description });
 
+/**
+ * Resolve a note write from whichever convention the caller used, so brain_write and
+ * brain_edit are interchangeable and forgiving:
+ *   - `content`: full raw markdown (frontmatter included) → written as-is.
+ *   - `body` that already starts with `---` (embedded frontmatter, no fm object) → raw.
+ *   - `body` (+ optional `frontmatter` object) → structured write.
+ * Throws on an empty write instead of silently creating an empty note.
+ */
+async function writeFromArgs(a: Args): Promise<string> {
+  const p = String(a.path);
+  const fm = a.frontmatter && typeof a.frontmatter === "object" ? a.frontmatter : undefined;
+  const hasFm = !!fm && Object.keys(fm).length > 0;
+  const bodyStr = typeof a.body === "string" ? a.body : "";
+  const contentStr = typeof a.content === "string" ? a.content : "";
+  const raw = contentStr.trim() !== "" ? contentStr : !hasFm && bodyStr.trim().startsWith("---") ? bodyStr : "";
+  if (raw.trim() !== "") return writeNoteRaw(p, raw);
+  if (bodyStr.trim() !== "" || hasFm) return writeNote(p, bodyStr, fm);
+  throw new Error(
+    "Nothing to write. Pass `body` (markdown, + optional `frontmatter` object) or `content` (full raw markdown incl. frontmatter). Refusing to create an empty note.",
+  );
+}
+
 export const TOOLS: Tool[] = [
   {
     name: "brain_schema",
@@ -91,30 +113,34 @@ export const TOOLS: Tool[] = [
   {
     name: "brain_write",
     description:
-      "Create or overwrite a note from a body + optional frontmatter object. Follow SCHEMA.md: kebab-case path, dated names for daily/decisions, frontmatter with title/type/tags/status. Path vault-relative (e.g. decisions/foo-2026-07-09.md).",
+      "Create or overwrite a note. Pass EITHER `body` (markdown) + optional `frontmatter` (object), OR `content` (full raw markdown incl. frontmatter, same as brain_edit) — either works. Follow SCHEMA.md: kebab-case path, dated names for daily/decisions, frontmatter with title/type/tags/status. Path vault-relative (e.g. decisions/foo-2026-07-09.md).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: s("vault-relative path, e.g. decisions/foo-2026-07-09.md"),
+        body: s("markdown body (pair with `frontmatter`)"),
+        frontmatter: { type: "object", description: "YAML frontmatter object: title, type, tags, status, related, ..." },
+        content: s("full raw markdown incl. frontmatter — alternative to body+frontmatter"),
+      },
+      required: ["path"],
+    },
+    handler: async (a) => ({ ok: true, path: await writeFromArgs(a) }),
+  },
+  {
+    name: "brain_edit",
+    description:
+      "Overwrite a note. Pass `content` (full raw markdown incl. frontmatter) — read first with brain_read, then write the whole file back. Also accepts `body` (+ optional `frontmatter`) like brain_write.",
     inputSchema: {
       type: "object",
       properties: {
         path: s("vault-relative path"),
-        body: s("markdown body"),
-        frontmatter: { type: "object", description: "YAML frontmatter: title, type, tags, status, related, ..." },
+        content: s("full raw markdown incl. frontmatter"),
+        body: s("markdown body (alternative to content; pair with `frontmatter`)"),
+        frontmatter: { type: "object", description: "YAML frontmatter object (with `body`)" },
       },
-      required: ["path", "body"],
+      required: ["path"],
     },
-    handler: async ({ path, body, frontmatter }) => ({
-      ok: true,
-      path: await writeNote(String(path), String(body ?? ""), frontmatter),
-    }),
-  },
-  {
-    name: "brain_edit",
-    description: "Overwrite a note with new full raw content (frontmatter included). Read first with brain_read, then write the whole file back.",
-    inputSchema: {
-      type: "object",
-      properties: { path: s("vault-relative path"), content: s("full raw markdown incl frontmatter") },
-      required: ["path", "content"],
-    },
-    handler: async ({ path, content }) => ({ ok: true, path: await writeNoteRaw(String(path), String(content ?? "")) }),
+    handler: async (a) => ({ ok: true, path: await writeFromArgs(a) }),
   },
   {
     name: "brain_append",

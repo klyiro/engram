@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Check } from "lucide-react";
 import { fetcher } from "@/lib/client";
+import { CURATOR_MODELS, DEFAULT_CAPTURE_MODEL } from "@/lib/models";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PublicSettings {
   appName: string;
@@ -19,27 +25,9 @@ interface PublicSettings {
   envManaged: Record<string, boolean>;
 }
 
-const input =
-  "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground focus:border-ring";
-const label = "text-xs font-medium text-muted-foreground";
-
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${on ? "bg-primary" : "bg-muted"}`}
-    >
-      <span className={`inline-block size-3.5 rounded-full bg-background transition-transform ${on ? "translate-x-4" : "translate-x-1"}`} />
-    </button>
-  );
-}
-
 function Field({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
@@ -55,7 +43,7 @@ export default function SettingsPage() {
   const [gitName, setGitName] = useState("");
   const [gitEmail, setGitEmail] = useState("");
   const [harness, setHarness] = useState(false);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useState<string>(DEFAULT_CAPTURE_MODEL);
   const [apiKey, setApiKey] = useState("");
   const [ghId, setGhId] = useState("");
   const [ghSecret, setGhSecret] = useState("");
@@ -137,8 +125,8 @@ export default function SettingsPage() {
         <section className="mt-8 space-y-4 border-t border-border pt-6">
           <h2 className="text-sm font-medium">General</h2>
           <Field hint={envHint("appName") ?? "Shown in the sidebar and browser tab."}>
-            <span className={label}>App name</span>
-            <input value={appNameV} onChange={(e) => setAppName(e.target.value)} placeholder="Engram" className={input} />
+            <Label htmlFor="appName">App name</Label>
+            <Input id="appName" value={appNameV} onChange={(e) => setAppName(e.target.value)} placeholder="Engram" />
           </Field>
         </section>
 
@@ -149,23 +137,23 @@ export default function SettingsPage() {
               <h2 className="text-sm font-medium">Git sync</h2>
               <p className="text-xs text-muted-foreground">Auto commit + push the active vault to its remote.</p>
             </div>
-            <Toggle on={gitSync} onChange={setGitSync} />
+            <Switch checked={gitSync} onCheckedChange={setGitSync} />
           </div>
           {gitSync && (
             <div className="grid grid-cols-2 gap-3">
               <Field>
-                <span className={label}>Commit author name</span>
-                <input value={gitName} onChange={(e) => setGitName(e.target.value)} placeholder="Engram" className={input} />
+                <Label htmlFor="gitName">Commit author name</Label>
+                <Input id="gitName" value={gitName} onChange={(e) => setGitName(e.target.value)} placeholder="Engram" />
               </Field>
               <Field>
-                <span className={label}>Commit author email</span>
-                <input value={gitEmail} onChange={(e) => setGitEmail(e.target.value)} placeholder="engram@localhost" className={input} />
+                <Label htmlFor="gitEmail">Commit author email</Label>
+                <Input id="gitEmail" value={gitEmail} onChange={(e) => setGitEmail(e.target.value)} placeholder="engram@localhost" />
               </Field>
             </div>
           )}
         </section>
 
-        {/* AI capture / harness */}
+        {/* Curator */}
         <section className="mt-6 space-y-4 border-t border-border pt-6">
           <div className="flex items-center justify-between">
             <div>
@@ -175,7 +163,7 @@ export default function SettingsPage() {
                 (brain_capture). Off by default — runs on your Anthropic key.
               </p>
             </div>
-            <Toggle on={harness} onChange={setHarness} />
+            <Switch checked={harness} onCheckedChange={setHarness} />
           </div>
           {harness && (
             <div className="space-y-3">
@@ -183,36 +171,42 @@ export default function SettingsPage() {
                 hint={
                   data.anthropicApiKeySet
                     ? "A key is set. Type a new value to replace it."
-                    : envHint("anthropicApiKey") ?? "Required to enable capture."
+                    : envHint("anthropicApiKey") ?? "Required to enable the Curator."
                 }
               >
-                <span className={label}>
+                <Label htmlFor="apiKey">
                   Anthropic API key {data.anthropicApiKeySet && <span className="text-primary">• set</span>}
-                </span>
+                </Label>
                 <div className="flex gap-2">
-                  <input
+                  <Input
+                    id="apiKey"
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder={data.anthropicApiKeySet ? "••••••••••••••••" : "sk-ant-…"}
-                    className={input}
                   />
                   {data.anthropicApiKeySet && (
-                    <button
-                      onClick={() => clearSecret("clearAnthropicApiKey")}
-                      className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-destructive"
-                    >
+                    <Button variant="outline" size="sm" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => clearSecret("clearAnthropicApiKey")}>
                       Remove
-                    </button>
+                    </Button>
                   )}
                 </div>
               </Field>
-              <Field>
-                <span className={label}>Capture model</span>
-                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="claude-haiku-4-5-20251001" className={input} />
+              <Field hint="Model used to auto-file rough dumps (brain_capture). Separate from the model you pick in the chat.">
+                <Label>Capture model</Label>
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURATOR_MODELS.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               {harness && !data.anthropicApiKeySet && !apiKey.trim() && (
-                <p className="text-[11px] text-amber-500">Capture stays off until an Anthropic key is saved.</p>
+                <p className="text-[11px] text-amber-500">The Curator stays off until an Anthropic key is saved.</p>
               )}
             </div>
           )}
@@ -229,28 +223,25 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field hint={envHint("githubClientId")}>
-              <span className={label}>Client ID</span>
-              <input value={ghId} onChange={(e) => setGhId(e.target.value)} placeholder="Iv1.…" className={input} />
+              <Label htmlFor="ghId">Client ID</Label>
+              <Input id="ghId" value={ghId} onChange={(e) => setGhId(e.target.value)} placeholder="Iv1.…" />
             </Field>
             <Field hint={data.githubClientSecretSet ? "A secret is set. Type a new value to replace it." : undefined}>
-              <span className={label}>
+              <Label htmlFor="ghSecret">
                 Client secret {data.githubClientSecretSet && <span className="text-primary">• set</span>}
-              </span>
+              </Label>
               <div className="flex gap-2">
-                <input
+                <Input
+                  id="ghSecret"
                   type="password"
                   value={ghSecret}
                   onChange={(e) => setGhSecret(e.target.value)}
                   placeholder={data.githubClientSecretSet ? "••••••••••••••••" : "secret"}
-                  className={input}
                 />
                 {data.githubClientSecretSet && (
-                  <button
-                    onClick={() => clearSecret("clearGithubClientSecret")}
-                    className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-destructive"
-                  >
+                  <Button variant="outline" size="sm" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => clearSecret("clearGithubClientSecret")}>
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </Field>
@@ -268,14 +259,10 @@ export default function SettingsPage() {
         </section>
 
         <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-border bg-background/80 py-4 backdrop-blur">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
+          <Button onClick={save} disabled={saving}>
             {saved && <Check size={14} />}
             {saving ? "Saving…" : saved ? "Saved" : "Save changes"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -29,9 +29,11 @@ Already a git repo — create a remote and push `main`.
 Deploy, then sign in with Google. These five bootstrap **auth + infra** — they gate login
 itself (or say where state lives), so they can't live behind the login and must be env.
 
-**Configure in the dashboard → Settings instead of env** (all optional; env value, if set, is
-just the default): **App name** · **Git sync** (enable + commit author) · **AI capture**
-(`brain_capture` toggle + Anthropic key + model) · **GitHub** repo-connect OAuth (client id/secret).
+**Configure in the dashboard → Settings (or the toggles on the home) instead of env** (all
+optional; env value, if set, is just the default): **Git sync** (ON by default — commit +
+push the connected vault; author + advanced in Settings) · **Curator** (chat + `brain_capture`
+auto-filing toggle + Anthropic key + capture model) · **App name** · **GitHub** repo-connect
+OAuth (client id/secret). Git sync and Curator have inline on/off toggles on the home hub.
 Secrets entered in Settings are stored encrypted at rest (keyed off `AUTH_SECRET`).
 
 ## 4. Connect a vault repo (in the dashboard → Workspaces)

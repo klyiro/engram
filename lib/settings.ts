@@ -13,6 +13,7 @@ import {
   HARNESS_ENABLED_ENV,
 } from "@/lib/config";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { DEFAULT_CAPTURE_MODEL, SUPPORTED_MODEL_IDS } from "@/lib/models";
 
 /**
  * Runtime settings — the dashboard-editable half of the config.
@@ -90,8 +91,10 @@ export function gitAuthor(): { name: string; email: string } {
   };
 }
 
+/** Model for brain_capture auto-filing. Always one of the supported ids (see lib/models.ts). */
 export function captureModel(): string {
-  return load().captureModel || CAPTURE_MODEL;
+  const m = load().captureModel || CAPTURE_MODEL;
+  return m && SUPPORTED_MODEL_IDS.has(m) ? m : DEFAULT_CAPTURE_MODEL;
 }
 
 export function anthropicApiKey(): string {

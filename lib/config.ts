@@ -69,15 +69,21 @@ export const SESSION_COOKIE = "engram_session";
  * never by importing these consts directly into feature code.
  */
 
-/** Env default for the git-sync loop (commit + push the active vault). */
-export const GIT_SYNC_ENABLED = process.env.GIT_SYNC_ENABLED === "true";
+/**
+ * Env default for the git-sync loop (commit + push the active vault). ON by default —
+ * it's a headline feature; set GIT_SYNC_ENABLED="false" to opt out. Only ever acts on a
+ * connected workspace repo (guarded by getActive() in lib/git.ts), never the sample vault.
+ */
+export const GIT_SYNC_ENABLED = process.env.GIT_SYNC_ENABLED !== "false";
 /** Env default commit identity for git-sync. */
 export const GIT_AUTHOR_NAME = process.env.GIT_AUTHOR_NAME || "Engram";
 export const GIT_AUTHOR_EMAIL = process.env.GIT_AUTHOR_EMAIL || "engram@localhost";
 
 /** Env default Anthropic key for the brain_capture harness (rough dump -> filed note). */
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
-export const CAPTURE_MODEL = process.env.CAPTURE_MODEL ?? "claude-haiku-4-5-20251001";
+/** Optional env seed for the brain_capture model. Must be a supported id (see lib/models.ts)
+ *  to take effect; otherwise captureModel() falls back to DEFAULT_CAPTURE_MODEL. */
+export const CAPTURE_MODEL = process.env.CAPTURE_MODEL ?? "";
 
 /**
  * Env default for the server-side auto-filing harness (brain_capture). OFF by default:

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GitBranch, Home, Network, Plug, Settings } from "lucide-react";
+import { Activity, GitBranch, Home, Network, Plug, Settings } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 
 const ITEMS = [
   { href: "/", icon: Home, label: "Home", exact: true },
+  { href: "/activity", icon: Activity, label: "Activity" },
   { href: "/graph", icon: Network, label: "Graph" },
   { href: "/workspaces", icon: GitBranch, label: "Workspaces" },
   { href: "/connect", icon: Plug, label: "Connect an agent" },

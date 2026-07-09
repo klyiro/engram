@@ -114,6 +114,17 @@ export function setActive(id: string): void {
   save(all);
 }
 
+/** Rename a workspace (display name only — the clone + remote are untouched). */
+export function renameRepo(id: string, name: string): Repo | null {
+  const all = load();
+  const rec = all.find((r) => r.id === id);
+  if (!rec) return null;
+  const trimmed = name.trim();
+  if (trimmed) rec.name = trimmed;
+  save(all);
+  return strip(rec);
+}
+
 export function removeRepo(id: string): void {
   save(load().filter((r) => r.id !== id));
   try {

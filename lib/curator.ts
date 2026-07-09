@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_CURATOR_MODEL, SUPPORTED_MODEL_IDS } from "@/lib/models";
 import { anthropicApiKey } from "@/lib/settings";
 import { getBacklinks, getNote, listNotes, readVaultFile, searchNotes } from "@/lib/vault/store";
 
@@ -8,14 +9,6 @@ import { getBacklinks, getNote, listNotes, readVaultFile, searchNotes } from "@/
  * SSE with an interleaved tool loop. Read-only: it helps you think, it doesn't write notes.
  * Uses the official Anthropic SDK so model IDs + adaptive thinking are exact.
  */
-
-export const CURATOR_MODELS = [
-  { id: "claude-opus-4-8", label: "Opus 4.8" },
-  { id: "claude-sonnet-5", label: "Sonnet 5" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5" },
-] as const;
-export const DEFAULT_CURATOR_MODEL = "claude-opus-4-8";
-const MODEL_IDS = new Set<string>(CURATOR_MODELS.map((m) => m.id));
 
 function systemPrompt(): string {
   const schema = readVaultFile("SCHEMA.md");
@@ -81,7 +74,7 @@ export async function* curatorStream(opts: {
     yield { type: "error", message: "No Anthropic API key. Enable the Curator in Settings and add a key." };
     return;
   }
-  const model = opts.model && MODEL_IDS.has(opts.model) ? opts.model : DEFAULT_CURATOR_MODEL;
+  const model = opts.model && SUPPORTED_MODEL_IDS.has(opts.model) ? opts.model : DEFAULT_CURATOR_MODEL;
   const client = new Anthropic({ apiKey });
 
   const messages: Anthropic.MessageParam[] = opts.messages

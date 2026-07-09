@@ -3,12 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Brain, Paperclip, Square } from "lucide-react";
 import { Markdown } from "@/components/markdown";
-
-const MODELS = [
-  { id: "claude-opus-4-8", label: "Opus 4.8" },
-  { id: "claude-sonnet-5", label: "Sonnet 5" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5" },
-];
+import { CURATOR_MODELS, DEFAULT_CURATOR_MODEL } from "@/lib/models";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Msg {
   role: "user" | "assistant";
@@ -18,7 +15,7 @@ interface Msg {
 export function CuratorChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [model, setModel] = useState(MODELS[0].id);
+  const [model, setModel] = useState<string>(DEFAULT_CURATOR_MODEL);
   const [thinking, setThinking] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
@@ -114,26 +111,29 @@ export function CuratorChat() {
         <Brain size={15} className="text-muted-foreground" />
         <span className="text-sm font-medium">Curator</span>
         <div className="ml-auto flex items-center gap-2">
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-          <button
+          <Select value={model} onValueChange={setModel}>
+            <SelectTrigger size="sm" className="w-auto text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURATOR_MODELS.map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setThinking((t) => !t)}
             title="Extended thinking"
-            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${thinking ? "border-primary/40 text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={thinking ? "border-primary/40 text-foreground" : "text-muted-foreground"}
           >
             <span className={`size-1.5 rounded-full ${thinking ? "bg-emerald-500" : "bg-muted-foreground/40"}`} /> thinking
-          </button>
+          </Button>
           {messages.length > 0 && (
-            <button onClick={() => { setMessages([]); setError(""); }} className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
+            <Button variant="outline" size="sm" className="text-muted-foreground" onClick={() => { setMessages([]); setError(""); }}>
               Clear
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -178,10 +178,12 @@ export function CuratorChat() {
       {/* Composer */}
       <div className="shrink-0 border-t border-border px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
-          <label className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground" title="Attach a text file">
-            <Paperclip size={15} />
-            <input type="file" accept=".md,.txt,.json,.csv,.ts,.tsx,.js,.py,text/*" className="hidden" onChange={attach} />
-          </label>
+          <Button asChild variant="outline" size="icon" className="shrink-0 cursor-pointer text-muted-foreground" title="Attach a text file">
+            <label>
+              <Paperclip size={15} />
+              <input type="file" accept=".md,.txt,.json,.csv,.ts,.tsx,.js,.py,text/*" className="hidden" onChange={attach} />
+            </label>
+          </Button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -196,18 +198,13 @@ export function CuratorChat() {
             className="scrollbar-none max-h-40 min-h-9 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-ring"
           />
           {streaming ? (
-            <button onClick={stop} className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground" title="Stop">
+            <Button onClick={stop} size="icon" className="shrink-0" title="Stop">
               <Square size={13} className="fill-current" />
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={send}
-              disabled={!input.trim()}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-40"
-              title="Send"
-            >
+            <Button onClick={send} disabled={!input.trim()} size="icon" className="shrink-0" title="Send">
               <ArrowUp size={16} />
-            </button>
+            </Button>
           )}
         </div>
       </div>

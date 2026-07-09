@@ -11,7 +11,7 @@ related:
 
 # Acme Corp
 
-Example client note. Referred by [[ada-lovelace]]. Using [[cortex]] as their team brain.
+Example client note. Referred by [[ada-lovelace]]. Using [[engram]] as their team brain.
 
 | Field | Value |
 |---|---|
@@ -20,4 +20,4 @@ Example client note. Referred by [[ada-lovelace]]. Using [[cortex]] as their tea
 
 ## Connected to
 - [[ada-lovelace]] — main contact
-- [[cortex]] — what we're building for them
+- [[engram]] — what we're building for them

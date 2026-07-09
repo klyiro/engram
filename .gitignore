@@ -12,9 +12,9 @@ next-env.d.ts
 .vercel
 .gstack/
 # local app state (token hashes, github token, repo clones) — never commit
-.cortex/
-**/.cortex/
-.cortex-data/
+.engram/
+**/.engram/
+.engram-data/
 sample-vault/.gitignore
 # local working notes (not part of the OSS repo)
 HANDOFF.md

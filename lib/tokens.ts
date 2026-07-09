@@ -4,7 +4,7 @@ import path from "node:path";
 import { DATA_ROOT } from "@/lib/config";
 
 // App state (token hashes) lives in the fixed data dir, separate from any vault content.
-const STATE_DIR = process.env.CORTEX_STATE_DIR || DATA_ROOT;
+const STATE_DIR = process.env.ENGRAM_STATE_DIR || DATA_ROOT;
 const TOKENS_FILE = path.join(STATE_DIR, "tokens.json");
 
 interface StoredToken {

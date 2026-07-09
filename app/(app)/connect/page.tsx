@@ -48,8 +48,8 @@ export default function ConnectPage() {
   const needsToken = feat?.mcpAuthRequired !== false;
   const tokenForCmd = justCreated?.token ?? "<MCP_TOKEN>";
   const tokenLine = needsToken || justCreated ? ` \\\n  --header "Authorization: Bearer ${tokenForCmd}"` : "";
-  const claudeCmd = `claude mcp add --transport http cortex ${mcp}${tokenLine}`;
-  const hermes = `mcp_servers:\n  cortex:\n    url: ${mcp}\n    headers:\n      Authorization: "Bearer ${tokenForCmd}"`;
+  const claudeCmd = `claude mcp add --transport http engram ${mcp}${tokenLine}`;
+  const hermes = `mcp_servers:\n  engram:\n    url: ${mcp}\n    headers:\n      Authorization: "Bearer ${tokenForCmd}"`;
 
   async function create() {
     if (creating) return;

@@ -1,7 +1,7 @@
 import path from "node:path";
 
 /** Public display name (also exposed to the client via NEXT_PUBLIC_APP_NAME). */
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Cortex";
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Engram";
 
 /**
  * Absolute path to the markdown vault (the knowledge, source of truth).
@@ -17,9 +17,9 @@ export const VAULT_DIR = process.env.VAULT_DIR
  * Fixed data dir for app state + managed vault clones (repos.json, tokens.json,
  * vaults/<id>/). Separate from any vault's content. On Railway set to the volume, e.g. /data.
  */
-export const DATA_ROOT = process.env.CORTEX_DATA_DIR
-  ? path.resolve(process.env.CORTEX_DATA_DIR)
-  : path.resolve(process.cwd(), ".cortex-data");
+export const DATA_ROOT = process.env.ENGRAM_DATA_DIR
+  ? path.resolve(process.env.ENGRAM_DATA_DIR)
+  : path.resolve(process.cwd(), ".engram-data");
 
 /** Directory names never treated as vault content (app code, git internals, build output). */
 export const VAULT_IGNORE = new Set(
@@ -58,18 +58,30 @@ export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 export const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID ?? "";
 export const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET ?? "";
 
-export const SESSION_COOKIE = "cortex_session";
+export const SESSION_COOKIE = "engram_session";
 
-/** When true, the git-sync loop commits + pushes vault changes to the remote. */
+/**
+ * The values below are ENV FALLBACKS/DEFAULTS. Most are now also configurable at
+ * runtime in the dashboard Settings page (persisted under ENGRAM_DATA_DIR). When a
+ * setting is saved in the UI it WINS; the env value here is only the default.
+ * Resolve them through `lib/settings.ts` (gitSyncEnabled(), gitAuthor(),
+ * harnessEnabled(), anthropicApiKey(), captureModel(), appName(), github*()),
+ * never by importing these consts directly into feature code.
+ */
+
+/** Env default for the git-sync loop (commit + push the active vault). */
 export const GIT_SYNC_ENABLED = process.env.GIT_SYNC_ENABLED === "true";
+/** Env default commit identity for git-sync. */
+export const GIT_AUTHOR_NAME = process.env.GIT_AUTHOR_NAME || "Engram";
+export const GIT_AUTHOR_EMAIL = process.env.GIT_AUTHOR_EMAIL || "engram@localhost";
 
-/** Anthropic key for the brain_capture harness (rough dump -> filed note). */
+/** Env default Anthropic key for the brain_capture harness (rough dump -> filed note). */
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 export const CAPTURE_MODEL = process.env.CAPTURE_MODEL ?? "claude-haiku-4-5-20251001";
 
 /**
- * Server-side auto-filing harness (brain_capture). OFF by default: a capable coding
- * agent can do the filing itself over the plain MCP tools with no extra server tokens.
- * Turn on only if you want the vault to file rough dumps on its own.
+ * Env default for the server-side auto-filing harness (brain_capture). OFF by default:
+ * a capable coding agent can do the filing itself over the plain MCP tools with no extra
+ * server tokens. The effective flag also requires an Anthropic key — see harnessEnabled().
  */
-export const HARNESS_ENABLED = process.env.HARNESS_ENABLED === "true" && ANTHROPIC_API_KEY !== "";
+export const HARNESS_ENABLED_ENV = process.env.HARNESS_ENABLED === "true";

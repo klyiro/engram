@@ -1,11 +1,11 @@
 ---
-title: Welcome to Cortex
+title: Welcome to Engram
 type: doc
 tags: [getting-started]
 created: 2026-01-15
 ---
 
-# Welcome to Cortex
+# Welcome to Engram
 
 This is a **sample vault** so the app works out of the box. Point `VAULT_DIR` at your own
 folder of markdown to use it for real.
@@ -15,8 +15,8 @@ folder of markdown to use it for real.
 > **graph** (sidebar icon) to see how notes connect.
 
 ## Explore
-- [[cortex]] — what this project is
-- [[adopt-cortex-2026-01-15]] — the decision behind it
+- [[engram]] — what this project is
+- [[adopt-engram-2026-01-15]] — the decision behind it
 - [[acme]] — an example client note
 - [[ada-lovelace]] — an example person note
 

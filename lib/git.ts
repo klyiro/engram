@@ -1,6 +1,6 @@
 import { simpleGit } from "simple-git";
-import { GIT_SYNC_ENABLED } from "@/lib/config";
 import { activeVaultDir } from "@/lib/repos";
+import { gitAuthor, gitSyncEnabled } from "@/lib/settings";
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let pending: string[] = [];
@@ -8,7 +8,7 @@ let running = false;
 
 /** Debounced commit + pull --rebase + push of the ACTIVE vault. No-op unless GIT_SYNC_ENABLED. */
 export function requestSync(reason: string): void {
-  if (!GIT_SYNC_ENABLED) return;
+  if (!gitSyncEnabled()) return;
   pending.push(reason);
   if (timer) clearTimeout(timer);
   timer = setTimeout(runSync, 2500);
@@ -31,8 +31,7 @@ async function runSync(): Promise<void> {
       running = false;
       return;
     }
-    const name = process.env.GIT_AUTHOR_NAME || "Cortex";
-    const email = process.env.GIT_AUTHOR_EMAIL || "cortex@localhost";
+    const { name, email } = gitAuthor();
     await g
       .env({
         ...process.env,
@@ -60,7 +59,7 @@ async function runSync(): Promise<void> {
 }
 
 export async function syncStatus() {
-  if (!GIT_SYNC_ENABLED) return { enabled: false as const };
+  if (!gitSyncEnabled()) return { enabled: false as const };
   try {
     const s = await simpleGit(activeVaultDir()).status();
     return { enabled: true as const, dirty: s.files.length, ahead: s.ahead, behind: s.behind, branch: s.current };

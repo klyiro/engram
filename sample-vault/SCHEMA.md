@@ -16,7 +16,7 @@ tags: [alpha, beta]
 status: active           # free text
 created: 2026-01-15
 related:
-  - "[[projects/cortex]]"
+  - "[[projects/engram]]"
 ---
 ```
 

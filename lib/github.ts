@@ -1,18 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
-import { APP_URL, DATA_ROOT, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET } from "@/lib/config";
+import { APP_URL, DATA_ROOT } from "@/lib/config";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { githubClientId, githubClientSecret } from "@/lib/settings";
 
 const GH_FILE = path.join(DATA_ROOT, "github.json");
 const REDIRECT_URI = () => `${APP_URL}/api/github/callback`;
 
 export function githubConfigured(): boolean {
-  return GITHUB_CLIENT_ID !== "" && GITHUB_CLIENT_SECRET !== "";
+  return githubClientId() !== "" && githubClientSecret() !== "";
 }
 
 export function githubAuthUrl(state: string): string {
   const p = new URLSearchParams({
-    client_id: GITHUB_CLIENT_ID,
+    client_id: githubClientId(),
     redirect_uri: REDIRECT_URI(),
     scope: "repo",
     state,
@@ -25,8 +26,8 @@ export async function exchangeGithubCode(code: string): Promise<string | null> {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
+      client_id: githubClientId(),
+      client_secret: githubClientSecret(),
       code,
       redirect_uri: REDIRECT_URI(),
     }),

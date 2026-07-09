@@ -1,4 +1,4 @@
-# Cortex — the app is the repo root. The vault is mounted separately at VAULT_DIR.
+# Engram — the app is the repo root. The vault is mounted separately at VAULT_DIR.
 FROM oven/bun:1
 
 WORKDIR /app

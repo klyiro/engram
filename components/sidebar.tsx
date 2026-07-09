@@ -4,17 +4,18 @@ import useSWR, { useSWRConfig } from "swr";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Network, FilePlus, Zap, Plug } from "lucide-react";
+import { Search, Network, FilePlus, Zap, Plug, Settings } from "lucide-react";
 import { fetcher, type TreeNode } from "@/lib/client";
 import { Tree } from "./tree";
 import { ThemeToggle } from "./theme-toggle";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Cortex";
+const FALLBACK_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Engram";
 
 export function Sidebar() {
   const { data } = useSWR<{ tree: TreeNode }>("/api/tree", fetcher, { refreshInterval: 5000 });
-  const { data: feat } = useSWR<{ harness?: boolean }>("/api/features", fetcher);
+  const { data: feat } = useSWR<{ harness?: boolean; appName?: string }>("/api/features", fetcher);
+  const appName = feat?.appName || FALLBACK_NAME;
   const { mutate } = useSWRConfig();
   const pathname = usePathname();
   const router = useRouter();
@@ -82,7 +83,7 @@ export function Sidebar() {
     <aside className="flex h-dvh w-64 shrink-0 flex-col border-r border-border bg-sidebar">
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
         <div className="size-2 rounded-full bg-primary" />
-        <span className="text-sm font-medium tracking-tight">{APP_NAME}</span>
+        <span className="text-sm font-medium tracking-tight">{appName}</span>
       </div>
 
       <WorkspaceSwitcher />
@@ -161,13 +162,22 @@ export function Sidebar() {
       </nav>
 
       <div className="flex items-center justify-between border-t border-border px-2 py-1.5">
-        <Link
-          href="/connect"
-          title="Connect an agent"
-          className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Plug size={14} />
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/connect"
+            title="Connect an agent"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Plug size={14} />
+          </Link>
+          <Link
+            href="/settings"
+            title="Settings"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Settings size={14} />
+          </Link>
+        </div>
         <ThemeToggle />
       </div>
     </aside>

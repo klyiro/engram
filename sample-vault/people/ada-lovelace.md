@@ -8,7 +8,7 @@ created: 2026-01-15
 
 # Ada Lovelace
 
-Example person note. Introduced us to [[acme]] and reviews [[cortex]].
+Example person note. Introduced us to [[acme]] and reviews [[engram]].
 
 > [!note]
 > Person notes hold contacts, history, and relationships. Wikilinks to their clients and

@@ -1,4 +1,5 @@
-import { HARNESS_ENABLED, MCP_TOKEN } from "@/lib/config";
+import { MCP_TOKEN } from "@/lib/config";
+import { harnessEnabled } from "@/lib/settings";
 import { hasAnyToken, verifyToken } from "@/lib/tokens";
 import { TOOLS, TOOL_MAP } from "@/lib/mcp/tools";
 
@@ -28,13 +29,13 @@ async function handleMessage(msg: Json): Promise<Json | null> {
       return rpc(id, {
         protocolVersion: params?.protocolVersion || PROTOCOL,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "cortex", version: "0.1.0" },
+        serverInfo: { name: "engram", version: "0.1.0" },
       });
     case "ping":
       return rpc(id, {});
     case "tools/list": {
       // Hide the auto-filing harness unless it's turned on (agents file notes themselves).
-      const tools = TOOLS.filter((t) => t.name !== "brain_capture" || HARNESS_ENABLED);
+      const tools = TOOLS.filter((t) => t.name !== "brain_capture" || harnessEnabled());
       return rpc(id, {
         tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
       });

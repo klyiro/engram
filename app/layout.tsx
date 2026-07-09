@@ -3,15 +3,17 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { APP_NAME } from "@/lib/config";
+import { appName } from "@/lib/settings";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: APP_NAME,
-  description: "Agent-first markdown second brain — dashboard + MCP over a git-backed vault",
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: appName(),
+    description: "Agent-first markdown second brain — dashboard + MCP over a git-backed vault",
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#0a0a0a",

@@ -1,4 +1,4 @@
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Cortex";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Engram";
 
 export default async function LoginPage({
   searchParams,

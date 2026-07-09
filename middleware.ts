@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const SESSION_COOKIE = "cortex_session";
+const SESSION_COOKIE = "engram_session";
 
 export async function middleware(req: NextRequest) {
   const secret = process.env.AUTH_SECRET || "";

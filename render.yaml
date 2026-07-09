@@ -2,21 +2,21 @@
 # One-click via the "Deploy to Render" button (repo must be public or connected).
 services:
   - type: web
-    name: cortex
+    name: engram
     runtime: docker
     plan: starter
     healthCheckPath: /api/health
     disk:
-      name: cortex-data
+      name: engram-data
       mountPath: /data
       sizeGB: 1
     envVars:
-      - key: CORTEX_DATA_DIR
+      - key: ENGRAM_DATA_DIR
         value: /data
       - key: GIT_SYNC_ENABLED
         value: "true"
       - key: NEXT_PUBLIC_APP_NAME
-        value: Cortex
+        value: Engram
       - key: AUTH_SECRET
         generateValue: true # auto-generated on deploy
       - key: APP_URL

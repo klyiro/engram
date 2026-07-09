@@ -1,4 +1,4 @@
-import { ANTHROPIC_API_KEY, CAPTURE_MODEL, HARNESS_ENABLED } from "@/lib/config";
+import { anthropicApiKey, captureModel, harnessEnabled } from "@/lib/settings";
 import { getTree, listNotes, readVaultFile } from "@/lib/vault/store";
 import { writeNote } from "@/lib/vault/write";
 
@@ -35,9 +35,10 @@ function extractJson(text: string): { path: string; frontmatter?: Record<string,
 
 /** Take a rough dump, let the model decide the path + frontmatter, and write the note. */
 export async function captureNote(rough: string): Promise<CaptureResult> {
-  if (!HARNESS_ENABLED)
-    throw new Error("brain_capture is off — set HARNESS_ENABLED=true and ANTHROPIC_API_KEY to enable the auto-filing harness");
-  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
+  const apiKey = anthropicApiKey();
+  if (!harnessEnabled())
+    throw new Error("brain_capture is off — enable the auto-filing harness in Settings (needs an Anthropic API key)");
+  if (!apiKey) throw new Error("Anthropic API key not set (Settings → AI capture)");
   const today = new Date().toISOString().slice(0, 10);
   const schema = readVaultFile("SCHEMA.md") ?? "(no SCHEMA.md)";
   const user = `Today is ${today}.\nExisting folders: ${folderList().join(", ") || "(none yet)"}\n\nSCHEMA:\n${schema}\n\nRough note to file:\n"""\n${rough}\n"""`;
@@ -46,11 +47,11 @@ export async function captureNote(rough: string): Promise<CaptureResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
+      "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: CAPTURE_MODEL,
+      model: captureModel(),
       max_tokens: 2000,
       system: SYSTEM,
       messages: [{ role: "user", content: user }],

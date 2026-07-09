@@ -2,12 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import MiniSearch from "minisearch";
 import { watch, type FSWatcher } from "chokidar";
-import { VAULT_DIR, VAULT_IGNORE } from "@/lib/config";
+import { VAULT_IGNORE } from "@/lib/config";
+import { activeVaultDir } from "@/lib/repos";
 import { scanVault } from "./scan";
 import { parseNote, stemOf } from "./parse";
 import type { Graph, GraphEdge, GraphNode, Note, NoteMeta, TreeNode } from "./types";
 
 interface IndexState {
+  dir: string;
   notes: Map<string, NoteMeta>;
   stemToPath: Map<string, string>;
   outEdges: Map<string, Set<string>>;
@@ -18,12 +20,14 @@ interface IndexState {
 
 let state: IndexState | null = null;
 let watcher: FSWatcher | null = null;
+let watchedDir = "";
 
 function buildState(): IndexState {
-  const files = scanVault();
+  const dir = activeVaultDir();
+  const files = scanVault(dir);
   const notes = new Map<string, NoteMeta>();
   const stemToPath = new Map<string, string>();
-  const linksBySource = new Map<string, string[]>(); // src path -> target stems
+  const linksBySource = new Map<string, string[]>();
   const docs: Array<{ id: string; title: string; tags: string; body: string; folder: string; type: string }> = [];
 
   for (const f of files) {
@@ -63,13 +67,18 @@ function buildState(): IndexState {
   });
   search.addAll(docs);
 
-  return { notes, stemToPath, outEdges, inEdges, search, builtAt: Date.now() };
+  return { dir, notes, stemToPath, outEdges, inEdges, search, builtAt: Date.now() };
 }
 
-function startWatcher() {
-  if (watcher) return;
+function startWatcher(dir: string) {
+  if (watcher && watchedDir === dir) return;
+  if (watcher) {
+    watcher.close().catch(() => {});
+    watcher = null;
+  }
+  watchedDir = dir;
   try {
-    watcher = watch(VAULT_DIR, {
+    watcher = watch(dir, {
       ignoreInitial: true,
       persistent: true,
       depth: 12,
@@ -97,16 +106,16 @@ function startWatcher() {
 }
 
 function ensure(): IndexState {
-  if (!state) {
-    state = buildState();
-    startWatcher();
-  }
+  const dir = activeVaultDir();
+  if (!state || state.dir !== dir) state = buildState();
+  startWatcher(dir);
   return state;
 }
 
-/** Force a synchronous rebuild (call after a write). */
+/** Force a synchronous rebuild (after a write or a workspace switch). */
 export function rebuildIndex(): void {
   state = buildState();
+  startWatcher(state.dir);
 }
 
 export function listNotes(): NoteMeta[] {
@@ -115,7 +124,7 @@ export function listNotes(): NoteMeta[] {
 
 export function getNote(relPath: string): Note | null {
   const s = ensure();
-  const abs = path.join(VAULT_DIR, relPath);
+  const abs = path.join(s.dir, relPath);
   let raw: string;
   try {
     raw = fs.readFileSync(abs, "utf8");
@@ -207,10 +216,10 @@ export function getTree(): TreeNode {
   return root;
 }
 
-/** Read a top-level meta file (SCHEMA.md / INDEX.md) verbatim, or null. */
+/** Read a top-level meta file (SCHEMA.md / INDEX.md) from the active vault, or null. */
 export function readVaultFile(name: string): string | null {
   try {
-    return fs.readFileSync(path.join(VAULT_DIR, name), "utf8");
+    return fs.readFileSync(path.join(activeVaultDir(), name), "utf8");
   } catch {
     return null;
   }

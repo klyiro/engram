@@ -1,14 +1,14 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
-import { VAULT_DIR } from "@/lib/config";
+import { activeVaultDir } from "@/lib/repos";
 import { rebuildIndex } from "./store";
 import { requestSync } from "@/lib/git";
 
-/** Resolve a vault-relative path to an absolute path, refusing escapes. */
+/** Resolve a vault-relative path to an absolute path in the active vault, refusing escapes. */
 function safeAbs(relPath: string): string {
-  const abs = path.resolve(VAULT_DIR, relPath);
-  const root = path.resolve(VAULT_DIR);
+  const root = path.resolve(activeVaultDir());
+  const abs = path.resolve(root, relPath);
   if (abs !== root && !abs.startsWith(root + path.sep)) throw new Error("path escapes the vault");
   return abs;
 }

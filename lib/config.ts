@@ -13,6 +13,14 @@ export const VAULT_DIR = process.env.VAULT_DIR
   ? path.resolve(process.env.VAULT_DIR)
   : path.resolve(process.cwd(), "sample-vault");
 
+/**
+ * Fixed data dir for app state + managed vault clones (repos.json, tokens.json,
+ * vaults/<id>/). Separate from any vault's content. On Railway set to the volume, e.g. /data.
+ */
+export const DATA_ROOT = process.env.CORTEX_DATA_DIR
+  ? path.resolve(process.env.CORTEX_DATA_DIR)
+  : path.resolve(process.cwd(), ".cortex-data");
+
 /** Directory names never treated as vault content (app code, git internals, build output). */
 export const VAULT_IGNORE = new Set(
   (process.env.VAULT_IGNORE ?? "app,.git,node_modules,.next,.github,infra")
@@ -39,6 +47,10 @@ export const AUTH_SECRET = process.env.AUTH_SECRET ?? "";
 export const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
+
+/** GitHub OAuth app — for connecting vault repos from the dashboard. */
+export const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID ?? "";
+export const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET ?? "";
 
 export const SESSION_COOKIE = "cortex_session";
 

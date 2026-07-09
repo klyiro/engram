@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { VAULT_DIR, VAULT_IGNORE } from "@/lib/config";
+import { VAULT_IGNORE } from "@/lib/config";
+import { activeVaultDir } from "@/lib/repos";
 
 export interface ScannedFile {
   rel: string;
@@ -9,7 +10,7 @@ export interface ScannedFile {
 }
 
 /** Recursively collect .md files under the vault, skipping ignored + dot dirs. */
-export function scanVault(root = VAULT_DIR): ScannedFile[] {
+export function scanVault(root = activeVaultDir()): ScannedFile[] {
   const out: ScannedFile[] = [];
 
   function walk(dir: string) {

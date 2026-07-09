@@ -1,11 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { VAULT_DIR } from "@/lib/config";
+import { DATA_ROOT } from "@/lib/config";
 
-// App state (token hashes) lives beside the vault but is kept OUT of the vault's
-// git history — so per-teammate keys never land in the knowledge repo.
-const STATE_DIR = process.env.CORTEX_STATE_DIR || path.join(VAULT_DIR, ".cortex");
+// App state (token hashes) lives in the fixed data dir, separate from any vault content.
+const STATE_DIR = process.env.CORTEX_STATE_DIR || DATA_ROOT;
 const TOKENS_FILE = path.join(STATE_DIR, "tokens.json");
 
 interface StoredToken {
@@ -25,21 +24,6 @@ const hash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 
 function ensureStateDir() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
-  // Make sure git-sync never commits the state dir into the vault repo.
-  try {
-    const gi = path.join(VAULT_DIR, ".gitignore");
-    let content = "";
-    try {
-      content = fs.readFileSync(gi, "utf8");
-    } catch {
-      /* none yet */
-    }
-    if (!content.split(/\r?\n/).some((l) => l.trim() === ".cortex/")) {
-      fs.writeFileSync(gi, `${content && !content.endsWith("\n") ? `${content}\n` : content}.cortex/\n`);
-    }
-  } catch {
-    /* best effort */
-  }
 }
 
 function load(): StoredToken[] {

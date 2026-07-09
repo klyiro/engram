@@ -1,11 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
-import {
-  ALLOWED_EMAILS,
-  APP_URL,
-  AUTH_SECRET,
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-} from "@/lib/config";
+import { ALLOWED_EMAILS, APP_URL, AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from "@/lib/config";
 
 const key = () => new TextEncoder().encode(AUTH_SECRET);
 

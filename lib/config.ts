@@ -38,6 +38,12 @@ export const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS ?? "")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
+/** GitHub usernames allowed to sign in (dashboard auth is GitHub-only). */
+export const ALLOWED_GITHUB_LOGINS = (process.env.ALLOWED_GITHUB_LOGINS ?? "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Single-user / local mode: no Google auth, MCP open. For OSS local dev only. */
 export const AUTH_DISABLED = process.env.AUTH_DISABLED === "true";
 

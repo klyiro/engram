@@ -8,6 +8,7 @@ import { Search, Network, FilePlus, Zap, Plug } from "lucide-react";
 import { fetcher, type TreeNode } from "@/lib/client";
 import { Tree } from "./tree";
 import { ThemeToggle } from "./theme-toggle";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Cortex";
 
@@ -83,6 +84,8 @@ export function Sidebar() {
         <div className="size-2 rounded-full bg-primary" />
         <span className="text-sm font-medium tracking-tight">{APP_NAME}</span>
       </div>
+
+      <WorkspaceSwitcher />
 
       <div className="flex gap-1 px-2 pb-2">
         <button

@@ -1,0 +1,13 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "bun run start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+# Deploy this repo (the app). Mount a volume at /data and set VAULT_DIR=/data;
+# the app clones + git-syncs the remote vault repo (GIT_REMOTE) into that volume.

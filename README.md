@@ -7,6 +7,13 @@ source of truth, an in-memory index powers search + graph, and git is the durabl
 Runs on **any** folder of markdown (`VAULT_DIR`). Ships with a `sample-vault/` so it works
 out of the box.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/klyiro/cortex)
+
+> **Not Vercel.** Cortex needs a persistent volume + a long-running process (git-backed vault
+> clones, a file watcher, an in-memory index), so serverless hosts won't run it. Use Railway,
+> Render, Fly, or any Docker host with a volume.
+
 ## Quick start
 
 ```bash
@@ -32,15 +39,21 @@ VAULT_DIR=/path/to/your/vault bun dev
 
 ## Deploy
 
-Railway (or any Docker host). Mount a volume at `/data`, set `VAULT_DIR=/data`, and point
-`GIT_REMOTE` at your **vault repo** — the app clones + syncs it into the volume, so the
-vault lives remotely and no machine keeps a local copy. See `.env.example`.
+Railway / Render / Fly / any Docker host (see the buttons above — **not** serverless). Mount a
+volume at `/data`, set `CORTEX_DATA_DIR=/data`, then connect your vault repo(s) **in the
+dashboard** (Workspaces) — by URL + token, or GitHub OAuth. Dashboard login is Google.
 
-Connect an agent:
+- **Railway:** New Project → *Deploy from GitHub repo* → add a Volume at `/data`. For a true
+  one-click, publish a Railway Template from your deploy and swap its URL into the button.
+- **Render:** one-click via the bundled `render.yaml` (Docker + a `/data` disk).
+
+Full env + Google/GitHub OAuth setup: **[DEPLOY.md](./DEPLOY.md)**.
+
+Connect an agent (dashboard → **Connect** shows the exact command):
 
 ```bash
 claude mcp add --transport http cortex https://<host>/api/mcp \
-  --header "Authorization: Bearer $MCP_TOKEN"
+  --header "Authorization: Bearer <token>"
 ```
 
 ## Stack

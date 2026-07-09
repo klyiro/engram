@@ -1,0 +1,30 @@
+# Render blueprint — Docker web service + a persistent disk for the vault + state.
+# One-click via the "Deploy to Render" button (repo must be public or connected).
+services:
+  - type: web
+    name: cortex
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: cortex-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: CORTEX_DATA_DIR
+        value: /data
+      - key: GIT_SYNC_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_APP_NAME
+        value: Cortex
+      - key: AUTH_SECRET
+        generateValue: true # auto-generated on deploy
+      - key: APP_URL
+        sync: false # set to your Render URL
+      - key: ALLOWED_EMAILS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Optional: GITHUB_CLIENT_ID/SECRET (OAuth repo connect), ANTHROPIC_API_KEY + HARNESS_ENABLED

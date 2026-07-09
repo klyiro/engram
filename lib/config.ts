@@ -35,3 +35,7 @@ export const AUTH_DISABLED = process.env.AUTH_DISABLED === "true";
 
 /** When true, the git-sync loop commits + pushes vault changes to the remote. */
 export const GIT_SYNC_ENABLED = process.env.GIT_SYNC_ENABLED === "true";
+
+/** Anthropic key for the brain_capture harness (rough dump -> filed note). Optional. */
+export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
+export const CAPTURE_MODEL = process.env.CAPTURE_MODEL ?? "claude-haiku-4-5-20251001";

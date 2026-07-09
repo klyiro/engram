@@ -15,6 +15,7 @@ import {
   writeNote,
   writeNoteRaw,
 } from "@/lib/vault/write";
+import { captureNote } from "@/lib/harness";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Args = Record<string, any>;
@@ -136,6 +137,13 @@ export const TOOLS: Tool[] = [
     description: "Create a new folder in the vault (with a .gitkeep).",
     inputSchema: { type: "object", properties: { path: s("folder path") }, required: ["path"] },
     handler: async ({ path }) => ({ ok: true, path: await createFolder(String(path)) }),
+  },
+  {
+    name: "brain_capture",
+    description:
+      "Capture a ROUGH note / brain-dump and let the vault file it automatically: it reads SCHEMA.md + the current folders, picks the right folder + filename, writes clean frontmatter, and structures the body. Use when you have unstructured input and don't want to decide the path yourself.",
+    inputSchema: { type: "object", properties: { text: s("the rough note / brain dump to file") }, required: ["text"] },
+    handler: async ({ text }) => await captureNote(String(text ?? "")),
   },
   {
     name: "brain_delete",

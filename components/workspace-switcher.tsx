@@ -11,9 +11,18 @@ interface Repo {
   name: string;
   active: boolean;
 }
+interface Sync {
+  enabled: boolean;
+  branch?: string;
+  ahead?: number;
+  behind?: number;
+  dirty?: number;
+  error?: boolean;
+}
 
 export function WorkspaceSwitcher() {
   const { data } = useSWR<{ repos: Repo[]; active: Repo | null }>("/api/repos", fetcher);
+  const { data: sync } = useSWR<Sync>("/api/sync", fetcher, { refreshInterval: 10000 });
   const { mutate } = useSWRConfig();
   const [open, setOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -21,6 +30,19 @@ export function WorkspaceSwitcher() {
   const repos = data?.repos ?? [];
   const activeName = data?.active?.name ?? "Sample vault";
   const hasRemote = !!data?.active;
+
+  // Live git status line — makes "it's a git repo" a constant truth, not a hidden setting.
+  const branch = sync?.branch || "main";
+  const changes = (sync?.ahead || 0) + (sync?.behind || 0) + (sync?.dirty || 0);
+  const [dot, status] = !hasRemote
+    ? ["bg-muted-foreground/40", "sample vault · local"]
+    : sync?.enabled === false
+      ? ["bg-muted-foreground/40", "sync off"]
+      : sync?.error
+        ? ["bg-amber-500", `${branch} · sync error`]
+        : changes > 0
+          ? ["bg-amber-500", `${branch} · ↑${sync?.ahead || 0} ↓${sync?.behind || 0}${sync?.dirty ? ` · ${sync.dirty} local` : ""}`]
+          : ["bg-emerald-500", `${branch} · synced`];
 
   async function switchTo(id: string) {
     await fetch("/api/repos/active", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
@@ -40,24 +62,32 @@ export function WorkspaceSwitcher() {
   }
 
   return (
-    <div className="relative flex items-center gap-1 px-2 pb-2">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs"
-      >
-        <span className="flex-1 truncate text-left text-foreground">{activeName}</span>
-        <ChevronsUpDown size={13} className="shrink-0 text-muted-foreground" />
-      </button>
-      {hasRemote && (
+    <div className="relative px-2 pb-2">
+      <div className="flex items-center gap-1">
         <button
-          onClick={refresh}
-          disabled={refreshing}
-          title="Pull latest from the remote"
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs"
         >
-          <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+          <span className="flex-1 truncate text-left text-foreground">{activeName}</span>
+          <ChevronsUpDown size={13} className="shrink-0 text-muted-foreground" />
         </button>
-      )}
+        {hasRemote && (
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            title="Pull latest from the remote"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-1 flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
+        <span className={`size-1.5 shrink-0 rounded-full ${dot}`} />
+        <span className="truncate">{status}</span>
+      </div>
+
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />

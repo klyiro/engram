@@ -31,8 +31,10 @@ export async function GET(req: Request) {
 
   const token = await createSessionToken(user);
   const secure = APP_URL.startsWith("https");
-  return redirect(
-    "/",
-    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${secure ? "; Secure" : ""}`,
-  );
+  const flag = secure ? "; Secure" : "";
+  const next = cookies.auth_next && cookies.auth_next.startsWith("/") && !cookies.auth_next.startsWith("//") ? cookies.auth_next : "/";
+  const headers = new Headers({ location: next });
+  headers.append("set-cookie", `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${flag}`);
+  headers.append("set-cookie", `auth_next=; Path=/; Max-Age=0${flag}`);
+  return new Response(null, { status: 302, headers });
 }

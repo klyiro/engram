@@ -29,7 +29,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except the MCP endpoint (bearer-token), health, the auth
-  // routes, the login page, and static assets.
-  matcher: ["/((?!api/mcp|api/health|api/auth|login|_next/static|_next/image|favicon.ico).*)"],
+  // Protect everything except the MCP endpoint (bearer-token), health, the auth +
+  // OAuth routes, the OAuth discovery well-knowns, the login page, and static assets.
+  matcher: ["/((?!api/mcp|api/health|api/auth|api/oauth|\\.well-known|login|_next/static|_next/image|favicon.ico).*)"],
 };

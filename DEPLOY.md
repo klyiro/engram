@@ -62,6 +62,15 @@ see the **active** vault:
 claude mcp add --transport http engram https://<your-app>.up.railway.app/api/mcp \
   --header "Authorization: Bearer <token from the Connect page>"
 ```
+Claude Code, Cursor, and Cline take that bearer header directly.
+
+### Connect from Claude.ai (custom connector — OAuth)
+Claude.ai's web connectors authenticate via **OAuth, not a pasted token**. Engram serves the
+OAuth flow automatically **whenever `AUTH_SECRET` is set** (no extra config): Settings →
+**Connectors** → **Add custom connector** → URL `https://<your-app>/api/mcp`. Claude registers
+itself (Dynamic Client Registration) and sends you through **your Google login + email
+allowlist**; approve and you're connected — no open endpoint, no shared secret. Requires a paid
+Claude plan (and, on Team/Enterprise, an admin to enable custom connectors).
 
 ## Notes
 - **No auth locally:** leave `AUTH_SECRET` empty (or `AUTH_DISABLED=true`) and the dashboard is open; the MCP is open until a token exists.

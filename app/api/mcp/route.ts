@@ -1,6 +1,7 @@
 import { MCP_TOKEN } from "@/lib/config";
 import { harnessEnabled } from "@/lib/settings";
 import { hasAnyToken, verifyToken } from "@/lib/tokens";
+import { oauthEnabled, verifyAccessToken, wwwAuthenticate } from "@/lib/oauth";
 import { TOOLS, TOOL_MAP } from "@/lib/mcp/tools";
 
 export const dynamic = "force-dynamic";
@@ -60,14 +61,28 @@ function jsonResponse(body: Json, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+/** A credential is valid if it matches the shared token, a per-teammate token, or a live OAuth access token. */
+async function authOk(token: string): Promise<boolean> {
+  if (!token) return false;
+  if (MCP_TOKEN !== "" && token === MCP_TOKEN) return true;
+  if (verifyToken(token)) return true;
+  if (oauthEnabled() && (await verifyAccessToken(token))) return true;
+  return false;
+}
+
+/** 401 that also advertises the OAuth flow (WWW-Authenticate) so connectors can discover it. */
+function unauthorized(): Response {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (oauthEnabled()) headers["WWW-Authenticate"] = wwwAuthenticate();
+  return new Response(JSON.stringify(rpc(null, undefined, { code: -32001, message: "unauthorized" })), { status: 401, headers });
+}
+
 export async function POST(req: Request) {
-  // Enforce the bearer only when auth is configured (env MCP_TOKEN or any team token).
-  // Open locally when nothing is set.
+  // Enforce auth when any is configured (env MCP_TOKEN, a team token, or OAuth). Open
+  // locally when nothing is set. On failure, advertise OAuth so Claude.ai can connect.
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (MCP_TOKEN !== "" || hasAnyToken()) {
-    const ok = (MCP_TOKEN !== "" && token === MCP_TOKEN) || verifyToken(token);
-    if (!ok) return jsonResponse(rpc(null, undefined, { code: -32001, message: "unauthorized" }), 401);
-  }
+  const authRequired = MCP_TOKEN !== "" || hasAnyToken() || oauthEnabled();
+  if (authRequired && !(await authOk(token))) return unauthorized();
 
   let body: Json;
   try {
@@ -84,7 +99,11 @@ export async function POST(req: Request) {
   return res ? jsonResponse(res) : new Response(null, { status: 202 });
 }
 
-// This server is request/response only (no server-initiated SSE stream).
+// This server is request/response only (no server-initiated SSE stream). When OAuth is on,
+// answer probes with a 401 that advertises the flow so connectors can discover it.
 export function GET() {
+  if (oauthEnabled()) {
+    return new Response("Unauthorized", { status: 401, headers: { "WWW-Authenticate": wwwAuthenticate() } });
+  }
   return new Response("Method Not Allowed", { status: 405 });
 }

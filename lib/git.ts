@@ -22,6 +22,34 @@ export function gitVaultDir(): string | null {
 }
 
 /**
+ * The environment for a git child process.
+ *
+ * simple-git refuses to run when an editor variable is inherited from the host
+ * ("Use of GIT_EDITOR is not permitted without enabling allowUnsafeEditor"), because a
+ * hostile value would execute arbitrary code. Plenty of shells and CI images export one, and
+ * the only symptom was a console.error while the vault quietly stopped syncing — so strip
+ * them rather than re-permitting them. `-m` commits need no editor anyway.
+ *
+ * GIT_TERMINAL_PROMPT=0 stops a missing credential from hanging the push forever.
+ */
+function commitEnv(name: string, email: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v === undefined) continue;
+    if (k === "GIT_EDITOR" || k === "GIT_SEQUENCE_EDITOR") continue;
+    env[k] = v;
+  }
+  return {
+    ...env,
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: email,
+    GIT_TERMINAL_PROMPT: "0",
+  };
+}
+
+/**
  * Debounced commit + pull --rebase + push of the active vault. No-op unless git-sync is on
  * AND the vault is its own git repo (see gitVaultDir).
  */
@@ -52,15 +80,7 @@ async function runSync(): Promise<void> {
       return;
     }
     const { name, email } = gitAuthor();
-    await g
-      .env({
-        ...process.env,
-        GIT_AUTHOR_NAME: name,
-        GIT_AUTHOR_EMAIL: email,
-        GIT_COMMITTER_NAME: name,
-        GIT_COMMITTER_EMAIL: email,
-      })
-      .commit(`brain: ${reasons.length} change(s) — ${reasons.slice(0, 3).join("; ")}`);
+    await g.env(commitEnv(name, email)).commit(`brain: ${reasons.length} change(s) — ${reasons.slice(0, 3).join("; ")}`);
     try {
       await g.pull(["--rebase", "--autostash"]);
     } catch (e) {

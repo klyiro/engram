@@ -1,7 +1,8 @@
 import { MCP_TOKEN } from "@/lib/config";
 import { harnessEnabled } from "@/lib/settings";
-import { hasAnyToken, verifyToken } from "@/lib/tokens";
+import { hasAnyToken, resolveToken, type TokenScope } from "@/lib/tokens";
 import { oauthEnabled, verifyAccessToken, wwwAuthenticate } from "@/lib/oauth";
+import { withActor } from "@/lib/actor";
 import { TOOLS, TOOL_MAP } from "@/lib/mcp/tools";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,12 @@ const PROTOCOL = "2025-06-18";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Json = any;
 
+/** The authenticated caller: a name for the audit trail, and what it may do. */
+interface Caller {
+  name: string;
+  scope: TokenScope;
+}
+
 function rpc(id: Json, result?: Json, error?: Json) {
   const msg: Json = { jsonrpc: "2.0", id: id ?? null };
   if (error) msg.error = error;
@@ -18,7 +25,7 @@ function rpc(id: Json, result?: Json, error?: Json) {
   return msg;
 }
 
-async function handleMessage(msg: Json): Promise<Json | null> {
+async function handleMessage(msg: Json, caller: Caller): Promise<Json | null> {
   const method: string | undefined = msg?.method;
   const id = msg?.id;
   const params = msg?.params;
@@ -35,8 +42,14 @@ async function handleMessage(msg: Json): Promise<Json | null> {
     case "ping":
       return rpc(id, {});
     case "tools/list": {
-      // Hide the auto-filing harness unless it's turned on (agents file notes themselves).
-      const tools = TOOLS.filter((t) => t.name !== "brain_capture" || harnessEnabled());
+      // A read-only token never sees the write tools — it cannot be tempted to call them,
+      // and the model never wastes a turn discovering it is forbidden.
+      // The auto-filing harness stays hidden unless it's turned on (agents file notes themselves).
+      const tools = TOOLS.filter((t) => {
+        if (t.name === "brain_capture" && !harnessEnabled()) return false;
+        if (t.write && caller.scope !== "write") return false;
+        return true;
+      });
       return rpc(id, {
         tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
       });
@@ -44,8 +57,18 @@ async function handleMessage(msg: Json): Promise<Json | null> {
     case "tools/call": {
       const tool = TOOL_MAP.get(params?.name);
       if (!tool) return rpc(id, undefined, { code: -32602, message: `unknown tool: ${params?.name}` });
+      if (tool.write && caller.scope !== "write") {
+        return rpc(id, undefined, {
+          code: -32001,
+          message: `${tool.name} mutates the vault, and this token is read-only. Ask the operator for a write token.`,
+        });
+      }
+      if (tool.name === "brain_capture" && !harnessEnabled()) {
+        return rpc(id, undefined, { code: -32601, message: "brain_capture is off — the operator has not enabled it." });
+      }
       try {
-        const out = await tool.handler(params?.arguments ?? {});
+        // Stamp every write this call causes with the caller's name, for the git audit trail.
+        const out = await withActor(caller.name, () => tool.handler(params?.arguments ?? {}));
         const text = typeof out === "string" ? out : JSON.stringify(out, null, 2);
         return rpc(id, { content: [{ type: "text", text }] });
       } catch (e) {
@@ -61,13 +84,19 @@ function jsonResponse(body: Json, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-/** A credential is valid if it matches the shared token, a per-teammate token, or a live OAuth access token. */
-async function authOk(token: string): Promise<boolean> {
-  if (!token) return false;
-  if (MCP_TOKEN !== "" && token === MCP_TOKEN) return true;
-  if (verifyToken(token)) return true;
-  if (oauthEnabled() && (await verifyAccessToken(token))) return true;
-  return false;
+/**
+ * Resolve a credential to a caller, or null when it is not valid. A named per-teammate token
+ * carries its own scope; the shared env token and OAuth sessions are full-access, and an
+ * unauthenticated local instance (no auth configured at all) is treated as the operator.
+ */
+async function authenticate(token: string, authRequired: boolean): Promise<Caller | null> {
+  if (!authRequired) return { name: "local", scope: "write" };
+  if (!token) return null;
+  if (MCP_TOKEN !== "" && token === MCP_TOKEN) return { name: "shared-token", scope: "write" };
+  const named = resolveToken(token);
+  if (named) return { name: named.name, scope: named.scope };
+  if (oauthEnabled() && (await verifyAccessToken(token))) return { name: "oauth", scope: "write" };
+  return null;
 }
 
 /** 401 that also advertises the OAuth flow (WWW-Authenticate) so connectors can discover it. */
@@ -82,7 +111,8 @@ export async function POST(req: Request) {
   // locally when nothing is set. On failure, advertise OAuth so Claude.ai can connect.
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   const authRequired = MCP_TOKEN !== "" || hasAnyToken() || oauthEnabled();
-  if (authRequired && !(await authOk(token))) return unauthorized();
+  const caller = await authenticate(token, authRequired);
+  if (!caller) return unauthorized();
 
   let body: Json;
   try {
@@ -92,10 +122,10 @@ export async function POST(req: Request) {
   }
 
   if (Array.isArray(body)) {
-    const out = (await Promise.all(body.map(handleMessage))).filter(Boolean);
+    const out = (await Promise.all(body.map((m) => handleMessage(m, caller)))).filter(Boolean);
     return out.length === 0 ? new Response(null, { status: 202 }) : jsonResponse(out);
   }
-  const res = await handleMessage(body);
+  const res = await handleMessage(body, caller);
   return res ? jsonResponse(res) : new Response(null, { status: 202 });
 }
 

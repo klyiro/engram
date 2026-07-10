@@ -5,6 +5,7 @@ import { activeVaultDir } from "@/lib/repos";
 import { refreshPaths } from "./store";
 import { checkFrontmatter, frontmatterErrorMessage } from "./validate";
 import { requestSync } from "@/lib/git";
+import { currentActor } from "@/lib/actor";
 
 /** Resolve a vault-relative path to an absolute path in the active vault, refusing escapes. */
 function safeAbs(relPath: string): string {
@@ -19,10 +20,14 @@ export function normalizeNotePath(relPath: string): string {
   return /\.md$/i.test(p) ? p : `${p}.md`;
 }
 
-/** Re-index only what changed, then queue a git commit. `touched` are vault-relative paths. */
+/**
+ * Re-index only what changed, then queue a git commit stamped with who caused it.
+ * The actor prefix is what turns the Activity feed into an audit trail rather than a
+ * list of anonymous edits. `touched` are vault-relative paths.
+ */
 function after(message: string, touched: string[]) {
   refreshPaths(touched);
-  requestSync(message);
+  requestSync(`${currentActor()}: ${message}`);
 }
 
 export interface WriteOpts {
@@ -95,6 +100,6 @@ export async function createFolder(relPath: string): Promise<string> {
   const abs = safeAbs(p);
   await fsp.mkdir(abs, { recursive: true });
   await fsp.writeFile(path.join(abs, ".gitkeep"), "", "utf8");
-  requestSync(`mkdir ${p}`);
+  requestSync(`${currentActor()}: mkdir ${p}`);
   return p;
 }

@@ -28,6 +28,8 @@ export interface Tool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** True when the tool mutates the vault. Read-only tokens may not call these. */
+  write?: boolean;
   handler: (args: Args) => Promise<unknown> | unknown;
 }
 
@@ -208,6 +210,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_write",
+    write: true,
     description:
       "Create or overwrite a note. PREFER `body` (markdown, no frontmatter) + `frontmatter` (an object): the YAML is serialised for you and always parses. Hand-writing frontmatter into `content` risks invalid YAML — a note whose frontmatter fails to parse loses its status, tags and title on every read, so a note claiming `status: locked` would rank as an ordinary one. Such a write is REJECTED. Follow SCHEMA.md: kebab-case path, dated names for daily/decisions, frontmatter with title/type/tags/status. Path vault-relative (e.g. decisions/foo-2026-07-09.md).",
     inputSchema: {
@@ -224,6 +227,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_edit",
+    write: true,
     description:
       "Overwrite a note. Pass `content` (full raw markdown incl. frontmatter) — read first with brain_read, then write the whole file back. Also accepts `body` (+ optional `frontmatter`) like brain_write.",
     inputSchema: {
@@ -240,6 +244,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_append",
+    write: true,
     description: "Append text to a note (creates it if missing).",
     inputSchema: {
       type: "object",
@@ -254,6 +259,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_move",
+    write: true,
     description:
       "Move or rename a note. This is how you retire something: when a note stops being true, move it to an archive folder (see brain_schema → conventions.ranking.archiveFolders) rather than deleting it. Archived notes are demoted in search and excluded by default, so they stop misleading agents while the reasoning trail survives. Leave a pointer in the replacement note saying what superseded what.",
     inputSchema: { type: "object", properties: { from: s("current path"), to: s("new path") }, required: ["from", "to"] },
@@ -261,12 +267,14 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_create_folder",
+    write: true,
     description: "Create a new folder in the vault (with a .gitkeep).",
     inputSchema: { type: "object", properties: { path: s("folder path") }, required: ["path"] },
     handler: async ({ path }) => ({ ok: true, path: await createFolder(String(path)) }),
   },
   {
     name: "brain_capture",
+    write: true,
     description:
       "Capture a ROUGH note / brain-dump and let the vault file it automatically: it reads SCHEMA.md + the current folders, picks the right folder + filename, writes clean frontmatter, and structures the body. Use when you have unstructured input and don't want to decide the path yourself.",
     inputSchema: { type: "object", properties: { text: s("the rough note / brain dump to file") }, required: ["text"] },
@@ -274,6 +282,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "brain_delete",
+    write: true,
     description:
       "Delete a note (recoverable via git history). Prefer brain_move into an archive folder — deleting destroys the reasoning trail, archiving only removes it from search. Delete when the note is wrong or duplicated, archive when it is merely no longer true.",
     inputSchema: { type: "object", properties: { path: s("vault-relative path") }, required: ["path"] },

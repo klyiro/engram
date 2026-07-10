@@ -1,8 +1,20 @@
+import { SESSION_COOKIE } from "@/lib/config";
+import { verifySessionToken } from "@/lib/auth";
+import { withActor } from "@/lib/actor";
 import { getBacklinks, getNote, getOutlinks } from "@/lib/vault/store";
 import { checkFrontmatter } from "@/lib/vault/validate";
 import { deleteNote, writeNoteRaw } from "@/lib/vault/write";
 
 export const dynamic = "force-dynamic";
+
+/** Attribute dashboard writes to the signed-in human, so the git log is not anonymous. */
+async function actorFor(req: Request): Promise<string> {
+  const cookie = req.headers.get("cookie") ?? "";
+  const raw = cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+  if (!raw) return "dashboard";
+  const session = await verifySessionToken(raw.slice(SESSION_COOKIE.length + 1));
+  return session?.email ? `dashboard (${session.email})` : "dashboard";
+}
 
 export async function GET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
@@ -19,7 +31,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ path: st
   if (typeof content !== "string") return Response.json({ error: "content (string) required" }, { status: 400 });
   // Non-strict: a human may autosave half-typed frontmatter. Save it, but tell them it is broken —
   // otherwise the note silently loses its status and tags. (Agents are refused; see lib/mcp/tools.ts.)
-  const saved = await writeNoteRaw(rel, content);
+  const actor = await actorFor(req);
+  const saved = await withActor(actor, () => writeNoteRaw(rel, content));
   const check = checkFrontmatter(content);
   return Response.json({
     ok: true,
@@ -32,9 +45,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ path: st
   });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const rel = path.map(decodeURIComponent).join("/");
-  await deleteNote(rel);
+  const actor = await actorFor(req);
+  await withActor(actor, () => deleteNote(rel));
   return Response.json({ ok: true });
 }

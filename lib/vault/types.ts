@@ -14,6 +14,11 @@ export interface NoteMeta {
   created?: string;
   updated?: string;
   frontmatter: Record<string, unknown>;
+  /**
+   * Set when the note opens with `---` but its YAML could not be parsed. The frontmatter is
+   * then entirely lost — status, tags, title — so the note silently loses its authority.
+   */
+  frontmatterError?: string;
   mtimeMs: number;
 }
 

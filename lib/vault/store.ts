@@ -403,6 +403,7 @@ export function vaultConventions() {
   const folders = new Set<string>();
   const statuses = new Map<string, number>();
   const types = new Set<string>();
+  const malformed: Array<{ path: string; error: string }> = [];
   let archived = 0;
 
   for (const n of s.notes.values()) {
@@ -410,6 +411,7 @@ export function vaultConventions() {
     if (n.type) types.add(n.type);
     if (n.status) statuses.set(n.status, (statuses.get(n.status) ?? 0) + 1);
     if (isArchivedPath(n.path)) archived++;
+    if (n.frontmatterError) malformed.push({ path: n.path, error: n.frontmatterError });
   }
 
   return {
@@ -421,13 +423,19 @@ export function vaultConventions() {
       .sort((a, b) => b[1] - a[1])
       .map(([status, count]) => ({ status, count })),
     ranking: authorityRules(),
-    integrity:
-      s.duplicateStems.size === 0
-        ? { duplicateStems: [] }
-        : {
-            duplicateStems: [...s.duplicateStems.entries()].map(([stem, paths]) => ({ stem, paths })),
-            warning: "Wikilinks to a duplicated stem resolve to the first path only. Rename one.",
-          },
+    integrity: {
+      duplicateStems: [...s.duplicateStems.entries()].map(([stem, paths]) => ({ stem, paths })),
+      malformedFrontmatter: malformed,
+      ...(s.duplicateStems.size > 0
+        ? { duplicateStemWarning: "Wikilinks to a duplicated stem resolve to the first path only. Rename one." }
+        : {}),
+      ...(malformed.length > 0
+        ? {
+            malformedFrontmatterWarning:
+              "These notes open with `---` but their YAML is unparseable, so their status, tags and title are being ignored — they rank as ordinary notes regardless of what they claim. Usual cause: an unquoted `:` in a value. Fix by quoting it.",
+          }
+        : {}),
+    },
   };
 }
 

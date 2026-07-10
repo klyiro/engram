@@ -100,12 +100,21 @@ export interface ParsedNote {
 export function parseNote(relPath: string, raw: string): ParsedNote {
   let data: Record<string, unknown> = {};
   let body = raw;
+  let frontmatterError: string | undefined;
   try {
     const g = matter(raw);
     data = (g.data ?? {}) as Record<string, unknown>;
     body = g.content;
-  } catch {
-    // Tolerate malformed frontmatter — treat whole file as body.
+  } catch (e) {
+    // Tolerate malformed frontmatter — treat the whole file as body — but never silently.
+    // A YAML typo (e.g. an unquoted second colon in a title) would otherwise discard the
+    // note's status and tags, so an authoritative note quietly ranks as an ordinary one.
+    frontmatterError = (e as Error).message.split("\n")[0];
+    if (raw.trimStart().startsWith("---")) {
+      console.warn(`[vault] ${relPath}: unreadable frontmatter — ${frontmatterError}`);
+    } else {
+      frontmatterError = undefined;
+    }
   }
 
   const slug = (relPath.split("/").pop() || relPath).replace(/\.md$/i, "");
@@ -125,6 +134,7 @@ export function parseNote(relPath: string, raw: string): ParsedNote {
     updated:
       data.updated != null ? String(data.updated) : data.date != null ? String(data.date) : undefined,
     frontmatter: data,
+    frontmatterError,
   };
 
   return { meta, body, rawLinks: extractRawLinks(body, data) };

@@ -55,6 +55,24 @@ async function writeFromArgs(a: Args): Promise<string> {
   );
 }
 
+/**
+ * Report a write, warning loudly when the note's YAML did not survive the round-trip.
+ * Unparseable frontmatter is silently discarded on read, so a note claiming `status: locked`
+ * would rank as an ordinary note forever. The agent that wrote it should hear about it now.
+ */
+async function writeResult(a: Args) {
+  const p = await writeFromArgs(a);
+  const n = getNote(p);
+  if (n?.frontmatterError) {
+    return {
+      ok: true,
+      path: p,
+      warning: `Frontmatter was written but cannot be parsed (${n.frontmatterError}). Its status, tags and title are being ignored. Usual cause: an unquoted ":" in a value — quote it, e.g. title: "Decision: X". Re-write the note to fix.`,
+    };
+  }
+  return { ok: true, path: p };
+}
+
 export const TOOLS: Tool[] = [
   {
     name: "brain_schema",
@@ -115,6 +133,11 @@ export const TOOLS: Tool[] = [
         tags: n.tags,
         frontmatter: n.frontmatter,
         backlinks: getBacklinks(n.path).map((b) => b.path),
+        ...(n.frontmatterError
+          ? {
+              warning: `This note's frontmatter is unparseable (${n.frontmatterError}), so its status, tags and title are being ignored — whatever it claims about itself is NOT in effect. Usual cause: an unquoted ":" in a value.`,
+            }
+          : {}),
       };
       if (!section) return { ...base, content: n.raw };
 
@@ -196,7 +219,7 @@ export const TOOLS: Tool[] = [
       },
       required: ["path"],
     },
-    handler: async (a) => ({ ok: true, path: await writeFromArgs(a) }),
+    handler: async (a) => await writeResult(a),
   },
   {
     name: "brain_edit",
@@ -212,7 +235,7 @@ export const TOOLS: Tool[] = [
       },
       required: ["path"],
     },
-    handler: async (a) => ({ ok: true, path: await writeFromArgs(a) }),
+    handler: async (a) => await writeResult(a),
   },
   {
     name: "brain_append",
@@ -222,7 +245,11 @@ export const TOOLS: Tool[] = [
       properties: { path: s("vault-relative path"), text: s("text to append") },
       required: ["path", "text"],
     },
-    handler: async ({ path, text }) => ({ ok: true, path: await appendNote(String(path), String(text ?? "")) }),
+    handler: async ({ path, text }) => {
+      const p = await appendNote(String(path), String(text ?? ""));
+      const n = getNote(p);
+      return n?.frontmatterError ? { ok: true, path: p, warning: `Frontmatter unparseable (${n.frontmatterError}) — status and tags ignored.` } : { ok: true, path: p };
+    },
   },
   {
     name: "brain_move",

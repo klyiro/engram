@@ -7,10 +7,12 @@
 <p align="center"><b>The second brain your AI agents read and write.</b></p>
 
 <p align="center">
-  <video src="https://github.com/rwnalds/engram/raw/main/assets/demo.mp4" controls width="820"></video>
+  <a href="https://github.com/rwnalds/engram/blob/main/assets/demo.mp4">
+    <img src="assets/demo.gif" alt="Engram demo — a home dashboard with recent activity and a Claude Code agent querying the vault" width="820" />
+  </a>
 </p>
 
-<p align="center"><sub><a href="https://github.com/rwnalds/engram/raw/main/assets/demo.mp4">▶ Watch the demo</a> if the video doesn't play inline.</sub></p>
+<p align="center"><sub><a href="https://github.com/rwnalds/engram/blob/main/assets/demo.mp4">▶ Watch the full-length video</a> (real-time, full quality)</sub></p>
 
 ---
 

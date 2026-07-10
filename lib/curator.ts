@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { DEFAULT_CURATOR_MODEL, SUPPORTED_MODEL_IDS } from "@/lib/models";
 import { anthropicApiKey } from "@/lib/settings";
 import { getBacklinks, getNote, listNotes, readVaultFile, searchNotes } from "@/lib/vault/store";
+import { authorityOf } from "@/lib/vault/authority";
 
 /**
  * The Curator — the resident chat agent of the brain. It answers questions about the
@@ -15,6 +16,7 @@ function systemPrompt(): string {
   return `You are the Curator — the resident agent of this markdown "second brain". You help the operator recall, connect, and reason over their own notes.
 
 Rules:
+- Every note carries an "authority": authoritative > current > provisional > superseded > archived. Search ranks by keyword relevance, not truth, so a superseded note can outrank the live one. Prefer the authoritative note. Never present a superseded, archived, or provisional note as current fact; if that is all you have, say so explicitly.
 - Ground every factual claim about the vault in the notes. Use brain_search to find notes, brain_read to read their full content, brain_list to see what exists. Never invent facts about the vault — if it isn't in the notes, say so plainly.
 - Cite notes in wikilink form so the user can click through, e.g. [[clients/mks/mks|MKS]] or [[decisions/foo-2026-07-09]].
 - Be direct, specific, and concise. Lead with the answer, then the supporting detail.
@@ -26,17 +28,19 @@ ${schema ? `\nThe vault's SCHEMA (folder taxonomy + conventions):\n"""\n${schema
 const TOOLS: Anthropic.Tool[] = [
   {
     name: "brain_search",
-    description: "Full-text + fuzzy search across all notes. Returns ranked results (path, title, folder). Use this first to find relevant notes.",
+    description:
+      "Keyword search across all notes. Use this first. Returns ranked hits with path, title, folder, status, a snippet, and `authority`. Ranking is by keyword relevance, NOT by truth: a superseded note repeats the query words as often as the live one. Trust `authority` (authoritative > current > provisional > superseded > archived) over rank order.",
     input_schema: { type: "object", properties: { query: { type: "string", description: "search query" } }, required: ["query"] },
   },
   {
     name: "brain_read",
-    description: "Read a note's full markdown (frontmatter + body) plus its backlinks. Path is vault-relative, e.g. 'clients/mks/mks.md'.",
+    description:
+      "Read a note's full markdown (frontmatter + body) plus its backlinks and `authority`. Path is vault-relative, e.g. 'clients/mks/mks.md'.",
     input_schema: { type: "object", properties: { path: { type: "string", description: "vault-relative path" } }, required: ["path"] },
   },
   {
     name: "brain_list",
-    description: "List all notes with metadata (path, title, folder, type, tags). Use to discover what exists.",
+    description: "List all notes with metadata (path, title, folder, type, tags, status, authority). Use to discover what exists.",
     input_schema: { type: "object", properties: {} },
   },
 ];
@@ -46,9 +50,17 @@ function runTool(name: string, input: Record<string, unknown>): unknown {
   if (name === "brain_read") {
     const p = String(input.path ?? "");
     const n = getNote(p);
-    return n ? { path: p, frontmatter: n.frontmatter, content: n.raw, backlinks: getBacklinks(p) } : { error: `not found: ${p}` };
+    if (!n) return { error: `not found: ${p}` };
+    return {
+      path: p,
+      authority: authorityOf(n),
+      frontmatter: n.frontmatter,
+      content: n.raw,
+      backlinks: getBacklinks(p),
+      ...(n.frontmatterError ? { warning: `Unparseable frontmatter (${n.frontmatterError}) — this note's status and tags are ignored.` } : {}),
+    };
   }
-  if (name === "brain_list") return listNotes();
+  if (name === "brain_list") return listNotes().map((n) => ({ ...n, authority: authorityOf(n) }));
   return { error: `unknown tool: ${name}` };
 }
 

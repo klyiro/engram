@@ -3,6 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { activeVaultDir } from "@/lib/repos";
 import { refreshPaths } from "./store";
+import { checkFrontmatter, frontmatterErrorMessage } from "./validate";
 import { requestSync } from "@/lib/git";
 
 /** Resolve a vault-relative path to an absolute path in the active vault, refusing escapes. */
@@ -24,9 +25,23 @@ function after(message: string, touched: string[]) {
   requestSync(message);
 }
 
+export interface WriteOpts {
+  /**
+   * Reject the write when the frontmatter cannot be parsed back.
+   * True for agents (MCP) — a machine has no excuse for emitting broken YAML, and a corrupt
+   * note silently loses its authority. False for the dashboard editor, where a human may save
+   * a half-typed document; they get a warning instead of losing their work.
+   */
+  strict?: boolean;
+}
+
 /** Write a note from a raw markdown string (frontmatter included). Used by the editor. */
-export async function writeNoteRaw(relPath: string, content: string): Promise<string> {
+export async function writeNoteRaw(relPath: string, content: string, opts: WriteOpts = {}): Promise<string> {
   const p = normalizeNotePath(relPath);
+  if (opts.strict) {
+    const check = checkFrontmatter(content);
+    if (!check.ok) throw new Error(frontmatterErrorMessage(p, check.error!));
+  }
   const abs = safeAbs(p);
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, content, "utf8");
@@ -34,11 +49,15 @@ export async function writeNoteRaw(relPath: string, content: string): Promise<st
   return p;
 }
 
-/** Write a note from a body + optional frontmatter object. Used by agents (MCP). */
+/**
+ * Write a note from a body + optional frontmatter object. Used by agents (MCP) and the harness.
+ * `matter.stringify` serialises the object, so the YAML always parses — this path cannot
+ * produce the corruption that hand-written frontmatter can.
+ */
 export async function writeNote(relPath: string, body: string, frontmatter?: Record<string, unknown>): Promise<string> {
   const content =
     frontmatter && Object.keys(frontmatter).length > 0 ? matter.stringify(body ?? "", frontmatter) : (body ?? "");
-  return writeNoteRaw(relPath, content);
+  return writeNoteRaw(relPath, content, { strict: true });
 }
 
 export async function appendNote(relPath: string, text: string): Promise<string> {

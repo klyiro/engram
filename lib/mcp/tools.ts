@@ -48,7 +48,8 @@ async function writeFromArgs(a: Args): Promise<string> {
   const bodyStr = typeof a.body === "string" ? a.body : "";
   const contentStr = typeof a.content === "string" ? a.content : "";
   const raw = contentStr.trim() !== "" ? contentStr : !hasFm && bodyStr.trim().startsWith("---") ? bodyStr : "";
-  if (raw.trim() !== "") return writeNoteRaw(p, raw);
+  // strict: an agent that hand-writes unparseable YAML is refused, not silently accepted.
+  if (raw.trim() !== "") return writeNoteRaw(p, raw, { strict: true });
   if (bodyStr.trim() !== "" || hasFm) return writeNote(p, bodyStr, fm);
   throw new Error(
     "Nothing to write. Pass `body` (markdown, + optional `frontmatter` object) or `content` (full raw markdown incl. frontmatter). Refusing to create an empty note.",
@@ -208,7 +209,7 @@ export const TOOLS: Tool[] = [
   {
     name: "brain_write",
     description:
-      "Create or overwrite a note. Pass EITHER `body` (markdown) + optional `frontmatter` (object), OR `content` (full raw markdown incl. frontmatter, same as brain_edit) — either works. Follow SCHEMA.md: kebab-case path, dated names for daily/decisions, frontmatter with title/type/tags/status. Path vault-relative (e.g. decisions/foo-2026-07-09.md).",
+      "Create or overwrite a note. PREFER `body` (markdown, no frontmatter) + `frontmatter` (an object): the YAML is serialised for you and always parses. Hand-writing frontmatter into `content` risks invalid YAML — a note whose frontmatter fails to parse loses its status, tags and title on every read, so a note claiming `status: locked` would rank as an ordinary one. Such a write is REJECTED. Follow SCHEMA.md: kebab-case path, dated names for daily/decisions, frontmatter with title/type/tags/status. Path vault-relative (e.g. decisions/foo-2026-07-09.md).",
     inputSchema: {
       type: "object",
       properties: {

@@ -57,12 +57,18 @@ powers full-text search + a wikilink **knowledge graph**.
 - **Human dashboard** — a **search-first home**, file tree, note viewer with **Obsidian callouts,
   wikilinks, and backlinks**, Preview / Edit / Split editor with autosave, ⌘K search + **in-page keyboard
   navigation**, "jump back in" recents, and a **force-directed knowledge graph**.
-- **Activity feed** — see every change agents and teammates make to your brain, read straight from **git
-  history**, with expandable **per-file diffs**. Your vault gets an audit trail for free.
-- **The Curator** *(optional)* — a resident **chat agent grounded in your notes**: ask a question and it
-  searches + reads the vault to answer, with wikilink citations (Opus / Sonnet / Haiku, your key). Plus
-  one-shot auto-filing (`brain_capture`) — drop a rough note and it lands in the right folder with the
-  right frontmatter.
+- **Authority-aware search** — ranking knows **relevance, not truth**, so a superseded note repeats your
+  query words as often as the live one. Every hit carries an **authority** (`authoritative` → `current`
+  → `provisional` → `superseded` → `archived`) derived from the note's folder and frontmatter — so your
+  agents quote the locked doc, not the dead one. Markdown RAG that won't hand back yesterday's answer.
+- **Audit trail + access control** — every write is attributed in **git** to the token or human that
+  made it, with expandable **per-file diffs** in the activity feed. Give an agent a **read-only token**
+  and it never even sees the write tools; a **write** token can create, edit, move, and archive.
+- **The Curator** *(optional)* — Engram's built-in **agent harness** over your vault. **Chat** with your
+  notes (grounded answers, wikilink citations). Or hand `brain_capture` a rough dump — a meeting note, a
+  voice transcript — and an **agentic loop searches what already exists, then files, merges, or archives**
+  and returns a manifest of what it touched. It reads before it overwrites and never deletes. Opus /
+  Sonnet / Haiku, your key.
 - **Markdown-native** — plain `.md` + YAML frontmatter + `[[wikilinks]]`. Drop in an existing
   **Obsidian vault** and it just works.
 - **Git-backed** — optional auto commit + push of every change. Full history, no lock-in, your data
@@ -80,8 +86,19 @@ powers full-text search + a wikilink **knowledge graph**.
 
 ## Works with
 
-**Claude Code · Claude Desktop · Cursor · Cline · Windsurf · Hermes · any MCP client.**
-One endpoint, bearer-token auth — if it speaks the Model Context Protocol, it can use Engram as memory.
+Any client that speaks the **Model Context Protocol** — one endpoint, bearer-token auth. Most-used first:
+
+- **[Claude Code](https://claude.com/claude-code)** — Anthropic's agentic coding CLI
+- **Codex** — OpenAI's coding agent (CLI + IDE)
+- **Hermes** — always-on autonomous agent runtime
+- **openclaw** — open-source coding agent
+- **Cursor** — AI code editor
+- **Cline** — VS Code agent
+- **Windsurf** — agentic IDE
+- **Claude Desktop** — Anthropic's desktop app
+- …and any other MCP client — Continue, Goose, Zed, Amp, and the rest
+
+If it speaks MCP, it can read and write Engram as shared memory.
 
 ## Quick start
 
@@ -137,7 +154,16 @@ Claude Code search, read, and write persistent notes across sessions.
 
 **Can multiple AI agents share one knowledge base?**
 Yes. Every agent points at the same MCP URL and reads/writes the same active vault — that's the point.
-Give each agent its own bearer token.
+Give each agent its own bearer token, `read` or `write` — a read-only token can't mutate your notes.
+
+**How do I stop an agent from returning outdated notes?**
+Mark a note `status: superseded` or move it to `archive/`, and Engram's **authority-aware** ranking
+demotes it — search knows relevance *and* trust, so agents quote the current doc, not the dead one.
+Every result carries an `authority` field for the agent to check.
+
+**How do I know what an agent changed?**
+Every write is committed to git attributed to the token or human behind it, and the dashboard's
+activity feed shows per-file diffs — a built-in audit trail for autonomous agents.
 
 **Does it work with my Obsidian vault?**
 Yes. It reads plain markdown with frontmatter and `[[wikilinks]]`, and renders Obsidian-style callouts
@@ -174,4 +200,6 @@ d3-force · MCP SDK. **MIT licensed.**
 long-term memory for Claude Code · shared memory for AI agents · self-hosted knowledge base ·
 Obsidian-compatible · markdown · knowledge graph · wikilinks · PKM · Zettelkasten · git-backed notes ·
 Hermes agent memory · Cursor memory · RAG without a vector database · chat with your markdown notes ·
-git-backed agent activity feed · audit trail for AI agents.</sub>
+git-backed agent activity feed · audit trail for AI agents · authority-aware search · read-only vs
+write MCP tokens · agent access control · self-organizing notes · agentic note capture · AI that files
+your notes · Basic Memory alternative · mem0 alternative.</sub>

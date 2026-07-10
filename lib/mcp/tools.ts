@@ -51,8 +51,10 @@ async function writeFromArgs(a: Args): Promise<string> {
   const contentStr = typeof a.content === "string" ? a.content : "";
   const raw = contentStr.trim() !== "" ? contentStr : !hasFm && bodyStr.trim().startsWith("---") ? bodyStr : "";
   // strict: an agent that hand-writes unparseable YAML is refused, not silently accepted.
-  if (raw.trim() !== "") return writeNoteRaw(p, raw, { strict: true });
-  if (bodyStr.trim() !== "" || hasFm) return writeNote(p, bodyStr, fm);
+  // allowShrink: only when the caller explicitly says it means to replace the note.
+  const opts = { strict: true, allowShrink: a.overwrite === true };
+  if (raw.trim() !== "") return writeNoteRaw(p, raw, opts);
+  if (bodyStr.trim() !== "" || hasFm) return writeNote(p, bodyStr, fm, opts);
   throw new Error(
     "Nothing to write. Pass `body` (markdown, + optional `frontmatter` object) or `content` (full raw markdown incl. frontmatter). Refusing to create an empty note.",
   );
@@ -220,6 +222,7 @@ export const TOOLS: Tool[] = [
         body: s("markdown body (pair with `frontmatter`)"),
         frontmatter: { type: "object", description: "YAML frontmatter object: title, type, tags, status, related, ..." },
         content: s("full raw markdown incl. frontmatter — alternative to body+frontmatter"),
+        overwrite: { type: "boolean", description: "confirm you mean to replace an existing note with much shorter content (default false)" },
       },
       required: ["path"],
     },
@@ -237,6 +240,7 @@ export const TOOLS: Tool[] = [
         content: s("full raw markdown incl. frontmatter"),
         body: s("markdown body (alternative to content; pair with `frontmatter`)"),
         frontmatter: { type: "object", description: "YAML frontmatter object (with `body`)" },
+        overwrite: { type: "boolean", description: "confirm you mean to replace an existing note with much shorter content (default false)" },
       },
       required: ["path"],
     },

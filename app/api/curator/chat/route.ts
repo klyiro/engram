@@ -1,4 +1,5 @@
 import { curatorStream, type ChatMessage } from "@/lib/curator";
+import { curatorEnabled } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -10,6 +11,10 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return new Response("invalid JSON", { status: 400 });
+  }
+  // The Curator is a real server-side policy, not a client-side switch: refuse when it's off.
+  if (!curatorEnabled()) {
+    return new Response("The Curator is off. Enable it in Settings (needs an Anthropic API key).", { status: 403 });
   }
   const messages = Array.isArray(body.messages) ? body.messages : [];
 

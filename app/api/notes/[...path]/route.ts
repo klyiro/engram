@@ -31,8 +31,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ path: st
   if (typeof content !== "string") return Response.json({ error: "content (string) required" }, { status: 400 });
   // Non-strict: a human may autosave half-typed frontmatter. Save it, but tell them it is broken —
   // otherwise the note silently loses its status and tags. (Agents are refused; see lib/mcp/tools.ts.)
+  // allowShrink: a human in the editor can see what they are deleting. Agents cannot.
   const actor = await actorFor(req);
-  const saved = await withActor(actor, () => writeNoteRaw(rel, content));
+  const saved = await withActor(actor, () => writeNoteRaw(rel, content, { allowShrink: true }));
   const check = checkFrontmatter(content);
   return Response.json({
     ok: true,

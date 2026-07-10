@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Check } from "lucide-react";
 import { fetcher } from "@/lib/client";
+import { cn } from "@/lib/utils";
 import { CURATOR_MODELS, DEFAULT_CAPTURE_MODEL } from "@/lib/models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +12,21 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type CuratorMode = "off" | "chat" | "full";
+
+const CURATOR_MODES: { id: CuratorMode; label: string; blurb: string }[] = [
+  { id: "off", label: "Off", blurb: "Engram never calls a model. A deterministic MCP server and dashboard." },
+  { id: "chat", label: "Chat", blurb: "Ask questions of your vault in the dashboard. The model reads; it cannot write." },
+  { id: "full", label: "Full", blurb: "Chat can write, and agents can file rough dumps with brain_capture." },
+];
+
 interface PublicSettings {
   appName: string;
   gitSyncEnabled: boolean;
   gitAuthorName: string;
   gitAuthorEmail: string;
-  harnessEnabledFlag: boolean;
-  harnessEffective: boolean;
+  curatorModeFlag: CuratorMode;
+  curatorMode: CuratorMode;
   captureModel: string;
   anthropicApiKeySet: boolean;
   githubClientId: string;
@@ -42,7 +51,7 @@ export default function SettingsPage() {
   const [gitSync, setGitSync] = useState(false);
   const [gitName, setGitName] = useState("");
   const [gitEmail, setGitEmail] = useState("");
-  const [harness, setHarness] = useState(false);
+  const [curator, setCurator] = useState<CuratorMode>("off");
   const [model, setModel] = useState<string>(DEFAULT_CAPTURE_MODEL);
   const [apiKey, setApiKey] = useState("");
   const [ghId, setGhId] = useState("");
@@ -58,7 +67,7 @@ export default function SettingsPage() {
     setGitSync(data.gitSyncEnabled);
     setGitName(data.gitAuthorName);
     setGitEmail(data.gitAuthorEmail);
-    setHarness(data.harnessEnabledFlag);
+    setCurator(data.curatorModeFlag);
     setModel(data.captureModel);
     setGhId(data.githubClientId);
   }, [data]);
@@ -72,7 +81,7 @@ export default function SettingsPage() {
       gitSyncEnabled: gitSync,
       gitAuthorName: gitName,
       gitAuthorEmail: gitEmail,
-      harnessEnabled: harness,
+      curatorMode: curator,
       captureModel: model,
       githubClientId: ghId,
     };
@@ -155,23 +164,38 @@ export default function SettingsPage() {
 
         {/* Curator */}
         <section className="mt-6 space-y-4 border-t border-border pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-medium">Curator</h2>
-              <p className="text-xs text-muted-foreground">
-                The in-app chat agent that reads your notes to answer, plus auto-filing of rough dumps
-                (brain_capture). Off by default — runs on your Anthropic key.
-              </p>
-            </div>
-            <Switch checked={harness} onCheckedChange={setHarness} />
+          <div>
+            <h2 className="text-sm font-medium">Curator</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Whether Engram itself runs a model. It does <em>not</em> control whether your agents can
+              edit the vault — a token&apos;s scope does, on the Connect page.
+            </p>
           </div>
-          {harness && (
+
+          <div className="inline-flex rounded-md border border-border p-0.5">
+            {CURATOR_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setCurator(m.id)}
+                className={cn(
+                  "rounded px-4 py-1.5 text-xs font-medium transition-colors",
+                  curator === m.id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">{CURATOR_MODES.find((m) => m.id === curator)?.blurb}</p>
+
+          {curator !== "off" && (
             <div className="space-y-3">
               <Field
                 hint={
                   data.anthropicApiKeySet
                     ? "A key is set. Type a new value to replace it."
-                    : envHint("anthropicApiKey") ?? "Required to enable the Curator."
+                    : envHint("anthropicApiKey") ?? "Required — your notes are sent to Anthropic on this key."
                 }
               >
                 <Label htmlFor="apiKey">
@@ -192,20 +216,22 @@ export default function SettingsPage() {
                   )}
                 </div>
               </Field>
-              <Field hint="Model used to auto-file rough dumps (brain_capture). Separate from the model you pick in the chat.">
-                <Label>Capture model</Label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURATOR_MODELS.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              {harness && !data.anthropicApiKeySet && !apiKey.trim() && (
+              {curator === "full" && (
+                <Field hint="Model used to auto-file rough dumps (brain_capture). Separate from the model you pick in the chat.">
+                  <Label>Capture model</Label>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURATOR_MODELS.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+              {!data.anthropicApiKeySet && !apiKey.trim() && (
                 <p className="text-[11px] text-amber-500">The Curator stays off until an Anthropic key is saved.</p>
               )}
             </div>

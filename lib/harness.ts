@@ -1,11 +1,16 @@
 import { anthropicApiKey, captureModel, harnessEnabled } from "@/lib/settings";
-import { getTree, listNotes, readVaultFile } from "@/lib/vault/store";
-import { writeNote } from "@/lib/vault/write";
+import { getNote, getTree, listNotes, readVaultFile } from "@/lib/vault/store";
+import { normalizeNotePath, writeNote } from "@/lib/vault/write";
 
 export interface CaptureResult {
   path: string;
   title: string;
   reasoning?: string;
+}
+
+/** True when a note already lives at this path (capture must not clobber it). */
+function noteExists(relPath: string): boolean {
+  return getNote(normalizeNotePath(relPath)) !== null;
 }
 
 /** Distinct top-level folders currently in the vault. */
@@ -62,6 +67,16 @@ export async function captureNote(rough: string): Promise<CaptureResult> {
   const text: string = data?.content?.[0]?.text ?? "";
   const parsed = extractJson(text);
   if (!parsed.path) throw new Error("model did not return a path");
+
+  // brain_capture files NEW notes. It must never silently overwrite an existing one: the model
+  // picks the path, and a bad guess would replace a real note with a rough dump. To update an
+  // existing note, an agent reads it and uses brain_edit / brain_append deliberately.
+  if (noteExists(parsed.path)) {
+    throw new Error(
+      `capture chose ${parsed.path}, but a note already exists there. Refusing to overwrite it. ` +
+        `Read that note and use brain_edit or brain_append if you meant to update it, or capture under a different path.`,
+    );
+  }
 
   const savedPath = await writeNote(parsed.path, parsed.body ?? "", parsed.frontmatter ?? {});
   return {

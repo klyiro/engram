@@ -38,6 +38,42 @@ export interface WriteOpts {
    * a half-typed document; they get a warning instead of losing their work.
    */
   strict?: boolean;
+  /**
+   * Permit a write that destroys most of an existing note. Default false for agents.
+   * A human in the editor is looking at what they're deleting; an agent usually is not.
+   */
+  allowShrink?: boolean;
+}
+
+/** An existing note this size or larger is worth protecting from an accidental truncation. */
+const SHRINK_FLOOR_BYTES = 400;
+/** Replacing a note with less than this fraction of its content looks like an accident. */
+const SHRINK_RATIO = 0.3;
+
+/**
+ * Refuse to replace a substantial note with a stub.
+ *
+ * A real incident: an agent was told "replace {{BOOKING_LINK}} in this file", and wrote that
+ * *instruction* into the file as its entire contents — destroying a 5.6KB snippet library.
+ * `writeNote` overwrites blind, so nothing stopped it. Overwriting is legitimate (an agent
+ * reads a note and writes it back), but collapsing 5.6KB to 170 bytes is a mistake worth
+ * refusing until someone says they meant it.
+ */
+async function guardTruncation(abs: string, relPath: string, next: string, allowShrink: boolean): Promise<void> {
+  if (allowShrink) return;
+  let existing: string;
+  try {
+    existing = await fsp.readFile(abs, "utf8");
+  } catch {
+    return; // new note — nothing to destroy
+  }
+  if (existing.length < SHRINK_FLOOR_BYTES) return;
+  if (next.length >= existing.length * SHRINK_RATIO) return;
+  throw new Error(
+    `Refusing to write ${relPath}: it would shrink from ${existing.length} to ${next.length} bytes, ` +
+      `discarding most of the note. Read it first (brain_read) and write back the full content you intend to keep. ` +
+      `To append, use brain_append. If you really mean to replace it, pass overwrite: true.`,
+  );
 }
 
 /** Write a note from a raw markdown string (frontmatter included). Used by the editor. */
@@ -48,6 +84,7 @@ export async function writeNoteRaw(relPath: string, content: string, opts: Write
     if (!check.ok) throw new Error(frontmatterErrorMessage(p, check.error!));
   }
   const abs = safeAbs(p);
+  await guardTruncation(abs, p, content, opts.allowShrink === true);
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, content, "utf8");
   after(`edit ${p}`, [p]);
@@ -59,10 +96,15 @@ export async function writeNoteRaw(relPath: string, content: string, opts: Write
  * `matter.stringify` serialises the object, so the YAML always parses — this path cannot
  * produce the corruption that hand-written frontmatter can.
  */
-export async function writeNote(relPath: string, body: string, frontmatter?: Record<string, unknown>): Promise<string> {
+export async function writeNote(
+  relPath: string,
+  body: string,
+  frontmatter?: Record<string, unknown>,
+  opts: WriteOpts = {},
+): Promise<string> {
   const content =
     frontmatter && Object.keys(frontmatter).length > 0 ? matter.stringify(body ?? "", frontmatter) : (body ?? "");
-  return writeNoteRaw(relPath, content, { strict: true });
+  return writeNoteRaw(relPath, content, { ...opts, strict: true });
 }
 
 export async function appendNote(relPath: string, text: string): Promise<string> {

@@ -38,7 +38,9 @@ interface StoredSettings {
   gitSyncEnabled?: boolean;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
+  /** Superseded by curatorMode; still read so existing deploys keep their behaviour. */
   harnessEnabled?: boolean;
+  curatorMode?: CuratorMode;
   captureModel?: string;
   anthropicApiKeyEnc?: string;
   githubClientId?: string;
@@ -101,10 +103,39 @@ export function anthropicApiKey(): string {
   return safeDecrypt(load().anthropicApiKeyEnc) || ANTHROPIC_API_KEY;
 }
 
-/** Effective harness flag — enabled AND a key is available (matches the old env semantics). */
+/**
+ * What the Curator is allowed to be.
+ *
+ *  off  — Engram never calls a model. A deterministic MCP server + dashboard.
+ *  chat — a grounded, read-only conversation with the vault, in the dashboard.
+ *  full — chat can write, and `brain_capture` is exposed over MCP.
+ *
+ * Note this does NOT govern whether agents can mutate the vault: MCP write tools are
+ * always available to a token with `write` scope (see lib/tokens.ts). The Curator only
+ * governs whether *Engram itself* runs a model.
+ */
+export type CuratorMode = "off" | "chat" | "full";
+
+/** The operator's chosen mode, migrating the old boolean harness flag. */
+export function curatorModeFlag(): CuratorMode {
+  const s = load();
+  if (s.curatorMode) return s.curatorMode;
+  return (s.harnessEnabled ?? HARNESS_ENABLED_ENV) ? "full" : "off";
+}
+
+/** Effective mode — a model needs a key, so without one the Curator is off however it's set. */
+export function curatorMode(): CuratorMode {
+  return anthropicApiKey() === "" ? "off" : curatorModeFlag();
+}
+
+/** Chat is available (read-only or better). */
+export function curatorEnabled(): boolean {
+  return curatorMode() !== "off";
+}
+
+/** The Curator may write: chat can edit notes, and brain_capture is exposed over MCP. */
 export function harnessEnabled(): boolean {
-  const flag = load().harnessEnabled ?? HARNESS_ENABLED_ENV;
-  return flag && anthropicApiKey() !== "";
+  return curatorMode() === "full";
 }
 
 export function githubClientId(): string {
@@ -122,8 +153,8 @@ export interface PublicSettings {
   gitSyncEnabled: boolean;
   gitAuthorName: string;
   gitAuthorEmail: string;
-  harnessEnabledFlag: boolean; // the raw toggle, independent of key presence
-  harnessEffective: boolean; // enabled AND a key is present
+  curatorModeFlag: CuratorMode; // the raw choice, independent of key presence
+  curatorMode: CuratorMode; // effective: "off" unless a key is present
   captureModel: string;
   anthropicApiKeySet: boolean;
   githubClientId: string;
@@ -139,8 +170,8 @@ export function publicSettings(): PublicSettings {
     gitSyncEnabled: gitSyncEnabled(),
     gitAuthorName: gitAuthor().name,
     gitAuthorEmail: gitAuthor().email,
-    harnessEnabledFlag: s.harnessEnabled ?? HARNESS_ENABLED_ENV,
-    harnessEffective: harnessEnabled(),
+    curatorModeFlag: curatorModeFlag(),
+    curatorMode: curatorMode(),
     captureModel: captureModel(),
     anthropicApiKeySet: anthropicApiKey() !== "",
     githubClientId: githubClientId(),
@@ -168,7 +199,7 @@ export interface SettingsPatch {
   gitSyncEnabled?: boolean;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
-  harnessEnabled?: boolean;
+  curatorMode?: CuratorMode;
   captureModel?: string;
   anthropicApiKey?: string;
   clearAnthropicApiKey?: boolean;
@@ -194,7 +225,10 @@ export function updateSettings(patch: SettingsPatch): PublicSettings {
   setText(s, "githubClientId", patch.githubClientId);
 
   if (patch.gitSyncEnabled !== undefined) s.gitSyncEnabled = patch.gitSyncEnabled;
-  if (patch.harnessEnabled !== undefined) s.harnessEnabled = patch.harnessEnabled;
+  if (patch.curatorMode !== undefined) {
+    s.curatorMode = patch.curatorMode;
+    delete s.harnessEnabled; // the old boolean is fully superseded once a mode is chosen
+  }
 
   // Secrets: set only when a value is typed; clear only on explicit request.
   if (patch.clearAnthropicApiKey) delete s.anthropicApiKeyEnc;

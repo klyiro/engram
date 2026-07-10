@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Check, Copy, Trash2 } from "lucide-react";
 import { fetcher } from "@/lib/client";
+import { cn } from "@/lib/utils";
 
 function Copyable({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -27,10 +28,14 @@ function Copyable({ text }: { text: string }) {
   );
 }
 
+/** A read-only token cannot mutate the vault — the write tools are not even listed to it. */
+type TokenScope = "read" | "write";
+
 interface TokenMeta {
   id: string;
   name: string;
   created: string;
+  scope: TokenScope;
 }
 
 export default function ConnectPage() {
@@ -43,6 +48,7 @@ export default function ConnectPage() {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<{ name: string; token: string } | null>(null);
+  const [scope, setScope] = useState<TokenScope>("write");
 
   const mcp = origin ? `${origin}/api/mcp` : "…";
   const needsToken = feat?.mcpAuthRequired !== false;
@@ -58,7 +64,7 @@ export default function ConnectPage() {
       const res = await fetch("/api/tokens", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() || "token" }),
+        body: JSON.stringify({ name: newName.trim() || "token", scope }),
       });
       const d = await res.json();
       if (d.token) setJustCreated({ name: d.name, token: d.token });
@@ -105,6 +111,26 @@ export default function ConnectPage() {
               placeholder="Token name"
               className="w-56 rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
             />
+            <div className="inline-flex shrink-0 rounded-md border border-border p-0.5" role="group" aria-label="Token scope">
+              {(["read", "write"] as const).map((sc) => (
+                <button
+                  key={sc}
+                  type="button"
+                  onClick={() => setScope(sc)}
+                  title={
+                    sc === "read"
+                      ? "The agent can search and read your notes, but cannot change them."
+                      : "The agent can create, edit, move and delete notes."
+                  }
+                  className={cn(
+                    "rounded px-3 py-1.5 text-xs font-medium capitalize transition-colors",
+                    scope === sc ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {sc}
+                </button>
+              ))}
+            </div>
             <button
               onClick={create}
               disabled={creating}
@@ -129,6 +155,7 @@ export default function ConnectPage() {
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="px-3 py-2 font-medium">Name</th>
+                    <th className="px-3 py-2 font-medium">Scope</th>
                     <th className="px-3 py-2 font-medium">Created</th>
                     <th className="px-3 py-2 text-right font-medium">Revoke</th>
                   </tr>
@@ -137,6 +164,11 @@ export default function ConnectPage() {
                   {tokens.map((t) => (
                     <tr key={t.id} className="border-b border-border last:border-0">
                       <td className="px-3 py-2">{t.name}</td>
+                      <td className="px-3 py-2">
+                        <span className={cn("text-xs", t.scope === "read" ? "text-muted-foreground" : "text-foreground")}>
+                          {t.scope === "read" ? "read-only" : "read & write"}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 text-muted-foreground">{new Date(t.created).toLocaleDateString()}</td>
                       <td className="px-3 py-2 text-right">
                         <button

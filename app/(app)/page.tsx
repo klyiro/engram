@@ -22,7 +22,7 @@ interface Repo {
 }
 interface Settings {
   gitSyncEnabled: boolean;
-  harnessEnabledFlag: boolean;
+  curatorModeFlag: "off" | "chat" | "full";
   anthropicApiKeySet: boolean;
 }
 interface Stats {
@@ -95,7 +95,7 @@ export default function Home() {
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const { data: repos } = useSWR<{ repos: Repo[]; active: Repo | null }>("/api/repos", fetcher);
-  const { data: feat } = useSWR<{ harness?: boolean; mcpAuthRequired?: boolean; appName?: string }>("/api/features", fetcher);
+  const { data: feat } = useSWR<{ curator?: "off" | "chat" | "full"; harness?: boolean; mcpAuthRequired?: boolean; appName?: string }>("/api/features", fetcher);
   const { data: tok } = useSWR<{ tokens: { id: string }[] }>("/api/tokens", fetcher);
   const { data: settings } = useSWR<Settings>("/api/settings", fetcher);
   const { data: activity } = useSWR<{ activity: ActivityEntry[] }>("/api/activity?limit=8", fetcher, { refreshInterval: 15000 });
@@ -107,11 +107,11 @@ export default function Home() {
 
   // Toggle state mirrors saved settings; hydrate once they arrive.
   const [gitSyncOn, setGitSyncOn] = useState(false);
-  const [curatorOn, setCuratorOn] = useState(false);
+  const [curatorMode, setCuratorMode] = useState<"off" | "chat" | "full">("off");
   useEffect(() => {
     if (!settings) return;
     setGitSyncOn(settings.gitSyncEnabled);
-    setCuratorOn(settings.harnessEnabledFlag);
+    setCuratorMode(settings.curatorModeFlag);
   }, [settings]);
 
   // Inline search over the vault.
@@ -166,16 +166,20 @@ export default function Home() {
     setGitSyncOn(v);
     patch({ gitSyncEnabled: v }, "/api/settings", "/api/sync");
   }
+  // The quick toggle only ever reaches "chat" — granting the Curator write access is a
+  // deliberate choice, made on the Settings page.
   function toggleCurator(v: boolean) {
-    setCuratorOn(v);
-    patch({ harnessEnabled: v }, "/api/settings", "/api/features");
+    const next = v ? "chat" : "off";
+    setCuratorMode(next);
+    patch({ curatorMode: next }, "/api/settings", "/api/features");
   }
 
   const recent = activity?.activity ?? [];
+  const curatorOn = curatorMode !== "off";
   const curatorNeedsKey = curatorOn && !settings?.anthropicApiKeySet;
 
   // ── Nothing set up yet (no vault, Curator off) → focused onboarding. ──
-  if (!active && !feat?.harness) {
+  if (!active && (feat?.curator ?? "off") === "off") {
     return (
       <div className="scrollbar-none h-full overflow-y-auto">
         <div className="mx-auto flex min-h-full max-w-2xl flex-col px-8 py-12">
@@ -213,7 +217,7 @@ export default function Home() {
                 title="Curator"
                 ok={false}
                 state={curatorNeedsKey ? "needs API key" : "off · optional"}
-                desc="An optional chat agent that reads your notes to answer. Turn it on anytime."
+                desc="An optional chat agent that reads your notes to answer. Turn it on anytime; it starts read-only."
                 on={curatorOn}
                 onToggle={toggleCurator}
                 footer={
@@ -253,10 +257,17 @@ export default function Home() {
             <Switch size="sm" checked={gitSyncOn} onCheckedChange={toggleGitSync} aria-label="Git sync" />
             <span>Git sync</span>
           </div>
-          <div className="flex items-center gap-1.5" title="In-app chat agent grounded in your notes">
-            <Switch size="sm" checked={curatorOn} onCheckedChange={toggleCurator} aria-label="Curator" />
-            <span>Curator{curatorNeedsKey && <span className="text-amber-500"> · needs key</span>}</span>
-          </div>
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+            title="Whether Engram itself runs a model. Agents' write access is set per token, on Connect."
+          >
+            <span>
+              Curator ·{" "}
+              <span className={curatorOn ? "text-foreground" : undefined}>{feat?.curator ?? curatorMode}</span>
+              {curatorNeedsKey && <span className="text-amber-500"> · needs key</span>}
+            </span>
+          </Link>
           <Link href="/settings" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">
             <SettingsIcon size={13} /> Settings
           </Link>

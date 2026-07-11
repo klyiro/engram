@@ -33,6 +33,8 @@ export interface Manifest {
   updated: string[];
   appended: string[];
   moved: string[];
+  /** Notes retired via brain_supersede (their replacements land in `created`). */
+  superseded: string[];
 }
 
 export type AgentEvent =
@@ -67,10 +69,11 @@ const toAnthropicTool = (t: Tool): Anthropic.Tool => ({
 const SHARED_RULES = `
 Rules that hold on every turn:
 - Ground every claim in the notes. Use brain_search to find them, brain_read to read them. Never invent a fact about this vault; if it isn't written down, say so.
-- Search ranks by keyword relevance, NOT by truth. Every result carries an "authority": authoritative > current > provisional > superseded > archived. Prefer the authoritative note. Never present a superseded, archived, or provisional note as current fact.
-- Compose freely for context and history. But a single-valued fact — a price, a guarantee, a legal entity, a contract term — has exactly one owning note. Do not merge sources for those, and never average two notes that disagree: that is a defect in the vault. Report it.
+- brain_search returns { hits, excluded }. Read hits; scan excluded for notes withheld as superseded/expired/archived. When you deliberately skip a stale note, say so and cite its excluded reason — never quote it as current.
+- Ranking is by relevance, NOT truth. Every hit carries an "authority": authoritative > current > provisional > superseded > archived. Prefer the authoritative note. Never present a superseded, archived, or provisional note as current fact.
+- A single-valued fact — a price, a guarantee, a legal entity, a contract term — has exactly one owning note. Do not merge sources for those, and never average two live notes that disagree: that is a defect in the vault. Report it.
 - Read a note before you overwrite it. Writing a note you have not read destroys whatever was there.
-- Nothing is ever deleted. When a note stops being true, brain_move it into archive/ and leave a pointer in whatever replaced it.
+- When a fact changes, use brain_supersede(old, new) — it retires the old note and links the new one atomically, so search stops surfacing the dead value. Nothing is ever deleted.
 `.trim();
 
 const CHAT_PROMPT = `You are the Curator — the resident agent of this markdown "second brain". You help the operator recall, connect, and reason over their own notes.
@@ -91,8 +94,8 @@ How to work:
 2. brain_search for what already exists on this subject. Do not skip this: filing a duplicate is worse than filing nothing.
 3. Then decide, deliberately:
    - Nothing exists → brain_write a new note at a sensible path.
-   - A note covers this already → brain_read it, then brain_append the new material, or brain_edit it with the FULL merged content.
-   - The dump supersedes an existing note → brain_move the old one into archive/ and write the replacement with a pointer to what it replaced.
+   - A note covers this already, and the dump ADDS to it → brain_read it, then brain_append the new material (or brain_edit with the FULL merged content).
+   - The dump CHANGES a fact an existing note states (a new price, a revised term) → brain_supersede(from: old-note, to: new-note, reason, body). One call retires the old note and creates/links the new one atomically. Do NOT just brain_write a second note — the old value would keep surfacing in search.
 4. Prefer passing a \`frontmatter\` object plus a plain \`body\` over hand-writing YAML — it always parses.
 5. Finish with one short sentence saying what you did and why. No preamble.
 
@@ -157,7 +160,7 @@ export async function* agentStream(opts: AgentOpts): AsyncGenerator<AgentEvent> 
   const model = opts.model && SUPPORTED_MODEL_IDS.has(opts.model) ? opts.model : DEFAULT_CURATOR_MODEL;
   const client = new Anthropic({ apiKey });
 
-  const manifest: Manifest = { created: [], updated: [], appended: [], moved: [] };
+  const manifest: Manifest = { created: [], updated: [], appended: [], moved: [], superseded: [] };
   /** Paths this run has actually read. The loop may not overwrite a note it hasn't opened. */
   const readPaths = new Set<string>();
 
@@ -187,6 +190,19 @@ export async function* agentStream(opts: AgentOpts): AsyncGenerator<AgentEvent> 
     const out = await withActor(opts.actor ?? "curator", () => tool.handler(input));
 
     if (name === "brain_read" && target) readPaths.add(target);
+
+    // brain_supersede touches two notes: the retired one and its replacement.
+    if (name === "brain_supersede" && out && typeof out === "object" && "from" in out && "to" in out) {
+      const from = String((out as { from: unknown }).from);
+      const to = String((out as { to: unknown }).to);
+      if (!manifest.superseded.includes(from)) manifest.superseded.push(from);
+      const toBucket: keyof Manifest = readPaths.has(to) ? "updated" : "created";
+      if (!manifest[toBucket].includes(to)) manifest[toBucket].push(to);
+      readPaths.add(from);
+      readPaths.add(to);
+      return out;
+    }
+
     const kind = MUTATION_KIND[name];
     if (kind && out && typeof out === "object" && "path" in out) {
       const p = String((out as { path: unknown }).path);

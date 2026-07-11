@@ -27,7 +27,7 @@ export async function captureNote(rough: string): Promise<CaptureResult> {
   const prompt = `Today is ${today}.\n\n${captureContext()}\n\nRough note to file:\n"""\n${rough}\n"""`;
 
   let summary = "";
-  let manifest: Manifest = { created: [], updated: [], appended: [], moved: [] };
+  let manifest: Manifest = { created: [], updated: [], appended: [], moved: [], superseded: [] };
   let failure = "";
 
   for await (const ev of agentStream({
@@ -47,8 +47,14 @@ export async function captureNote(rough: string): Promise<CaptureResult> {
   if (failure) throw new Error(failure);
 
   // The dashboard opens one note after a capture; prefer what was created, then what was changed.
+  // A retired note (superseded) is last — the live replacement is already in `created`.
   const primary =
-    manifest.created[0] ?? manifest.updated[0] ?? manifest.appended[0] ?? manifest.moved[0] ?? "";
+    manifest.created[0] ??
+    manifest.updated[0] ??
+    manifest.appended[0] ??
+    manifest.moved[0] ??
+    manifest.superseded[0] ??
+    "";
   if (!primary) {
     throw new Error(`capture wrote nothing. The model said: ${summary.trim() || "(nothing)"}`);
   }

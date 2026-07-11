@@ -17,6 +17,7 @@ interface Manifest {
   updated: string[];
   appended: string[];
   moved: string[];
+  superseded: string[];
 }
 
 interface Msg {
@@ -34,8 +35,12 @@ function changeSummary(m?: Manifest): { label: string; paths: string[] } | null 
   if (m.updated.length) parts.push(`updated ${m.updated.length}`);
   if (m.appended.length) parts.push(`appended ${m.appended.length}`);
   if (m.moved.length) parts.push(`moved ${m.moved.length}`);
+  if (m.superseded?.length) parts.push(`superseded ${m.superseded.length}`);
   if (!parts.length) return null;
-  return { label: parts.join(" · "), paths: [...m.created, ...m.updated, ...m.appended, ...m.moved] };
+  return {
+    label: parts.join(" · "),
+    paths: [...m.created, ...m.updated, ...m.appended, ...m.moved, ...(m.superseded ?? [])],
+  };
 }
 
 export function CuratorChat() {

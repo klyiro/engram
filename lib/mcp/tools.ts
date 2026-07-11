@@ -91,25 +91,27 @@ export const TOOLS: Tool[] = [
   {
     name: "brain_search",
     description:
-      "Keyword search across the vault. Returns ranked hits with `path`, `title`, `folder`, `status`, `snippet`, and `authority`.\n\n" +
-      "IMPORTANT — ranking is by keyword relevance, NOT by truth. A superseded document repeats the query words just as often as the live one, so it can outrank it. Every hit carries an `authority` field: `authoritative` (source of truth — prefer it), `current`, `provisional` (draft/proposed — never quote as settled), `superseded`, `archived`. Rank order is a suggestion; `authority` is the signal.\n\n" +
-      "Before quoting a price, guarantee, contract term, or any other single-valued fact, open the `authoritative` note and read it. If two notes disagree on such a fact, that is a defect in the vault — report it rather than averaging them.\n\n" +
-      "Archived notes are excluded unless `includeArchive` is true.",
+      "Keyword search across the vault. Returns `{ hits, excluded }`. Each hit has `path`, `title`, `folder`, `status`, `snippet`, and `authority`.\n\n" +
+      "IMPORTANT — ranking is by keyword relevance, NOT by truth. A superseded document repeats the query words just as often as the live one, so it can outrank it. Every hit carries an `authority`: `authoritative` (source of truth — prefer it), `current`, `provisional` (draft/proposed — never quote as settled), `superseded`, `archived`. Rank order is a suggestion; `authority` is the signal.\n\n" +
+      "`excluded` is the explainable-rejection list: notes that matched the query but were withheld because they are archived, superseded, or **expired** (past their `valid_until`), each with a `reason` (e.g. \"superseded by price-live\", \"expired 2026-06-01\"). **When you deliberately ignore a stale note, cite its `excluded` entry** — say what you skipped and why, instead of quoting it. If you need a withheld note, re-search with `includeInvalid: true` (superseded/expired) or `includeArchive: true`.\n\n" +
+      "Before quoting a price, guarantee, contract term, or any other single-valued fact, open the `authoritative` note. If two live notes disagree on such a fact, that is a defect in the vault — report it rather than averaging them.",
     inputSchema: {
       type: "object",
       properties: {
         query: s("search query — a few keywords beat a full sentence"),
-        limit: { type: "number", description: "max results (default 20)" },
+        limit: { type: "number", description: "max hits (default 20)" },
         folder: s("restrict to one top-level folder, e.g. 'decisions'"),
-        includeArchive: { type: "boolean", description: "include historical notes in archive folders (default false)" },
+        includeArchive: { type: "boolean", description: "return archived notes as hits (default false → they go to `excluded`)" },
+        includeInvalid: { type: "boolean", description: "return superseded/expired notes as hits, still demoted (default false → `excluded`)" },
       },
       required: ["query"],
     },
-    handler: ({ query, limit, folder, includeArchive }) =>
+    handler: ({ query, limit, folder, includeArchive, includeInvalid }) =>
       searchNotes(String(query ?? ""), {
         limit: typeof limit === "number" ? limit : 20,
         folder: folder ? String(folder) : undefined,
         includeArchive: includeArchive === true,
+        includeInvalid: includeInvalid === true,
       }),
   },
   {

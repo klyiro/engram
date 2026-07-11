@@ -6,7 +6,7 @@ import { VAULT_IGNORE } from "@/lib/config";
 import { activeVaultDir } from "@/lib/repos";
 import { scanVault } from "./scan";
 import { parseNote, stemOf } from "./parse";
-import { authorityOf, authorityRules, isArchivedPath, weightOf, type Authority } from "./authority";
+import { authorityOf, authorityRules, isArchivedPath, overlayValidity, weightOf, type Authority } from "./authority";
 import type { Graph, GraphEdge, GraphNode, Note, NoteMeta, TreeNode } from "./types";
 
 interface IndexDoc {
@@ -20,6 +20,10 @@ interface IndexDoc {
   /** stored, not indexed — used for filtering + authority-weighted ranking */
   status: string;
   authority: Authority;
+  /** epoch ms deadline (or null). Read at query time so expiry is live without re-indexing. */
+  validUntil: number | null;
+  /** stem of the superseding note (or null). Marks this doc retired at query time. */
+  supersededBy: string | null;
   mtimeMs: number;
 }
 
@@ -44,7 +48,7 @@ let watchedDir = "";
 function newIndex(): MiniSearch<IndexDoc> {
   return new MiniSearch<IndexDoc>({
     fields: ["title", "aliases", "tags", "body", "folder", "type"],
-    storeFields: ["title", "folder", "type", "status", "authority", "mtimeMs"],
+    storeFields: ["title", "folder", "type", "status", "authority", "validUntil", "supersededBy", "mtimeMs"],
     searchOptions: {
       boost: { title: 3, aliases: 3, tags: 2 },
       prefix: true,
@@ -70,6 +74,8 @@ function toDoc(meta: NoteMeta, body: string): IndexDoc {
     type: meta.type ?? "",
     status: meta.status ?? "",
     authority: authorityOf(meta),
+    validUntil: meta.validUntil ?? null,
+    supersededBy: meta.supersededBy ?? null,
     mtimeMs: meta.mtimeMs,
   };
 }
@@ -300,6 +306,24 @@ export interface SearchHit {
   authority: Authority;
   score: number;
   snippet?: string;
+  /** Present only when a retired note is returned anyway (includeInvalid) — why it's stale. */
+  reason?: string;
+}
+
+/** A note that matched the query but was withheld — the "explainable rejection". */
+export interface SearchExclusion {
+  path: string;
+  title: string;
+  folder: string;
+  authority: Authority;
+  /** Why it was withheld, e.g. "superseded by price-live" or "expired 2026-06-01". */
+  reason: string;
+}
+
+export interface SearchResult {
+  hits: SearchHit[];
+  /** Matches held back as archived/superseded/expired, so an agent can say what it ignored and why. */
+  excluded: SearchExclusion[];
 }
 
 export interface SearchOpts {
@@ -308,6 +332,8 @@ export interface SearchOpts {
   folder?: string;
   /** Include notes in archive folders (still ranked far below live ones). Default false. */
   includeArchive?: boolean;
+  /** Include superseded/expired notes as hits (still demoted). Default false — they go to `excluded`. */
+  includeInvalid?: boolean;
   /** Attach ~200 chars of matching context per hit. Default true. */
   snippets?: boolean;
 }
@@ -333,55 +359,89 @@ function snippetFor(dir: string, rel: string, terms: string[]): string | undefin
   }
 }
 
+interface StoredDoc {
+  id: string;
+  title: string;
+  folder: string;
+  type?: string;
+  status?: string;
+  authority: Authority;
+  validUntil?: number | null;
+  supersededBy?: string | null;
+  score: number;
+}
+
 /**
- * Keyword search, then reweighted by authority.
+ * Keyword search, reweighted by authority, then partitioned by validity.
  *
- * The ranking is deliberately two-stage: MiniSearch says how well a note *matches*,
- * authorityOf() says how far it can be *trusted*. Without the second stage a superseded
- * price list outranks the locked one, because it repeats the query words just as often.
+ * Three stages: MiniSearch says how well a note *matches*; authority says how far it can be
+ * *trusted*; and the validity overlay (superseded / expired) decides whether it's still true at
+ * all. A retired note is withheld from `hits` and reported in `excluded` with a reason — so an
+ * agent can state what it ignored and why, instead of quietly quoting a dead fact.
  */
-export function searchNotes(q: string, opts: SearchOpts = {}): SearchHit[] {
+export function searchNotes(q: string, opts: SearchOpts = {}): SearchResult {
   const s = ensure();
-  if (!q.trim()) return [];
-  const { limit = 20, folder, includeArchive = false, snippets = true } = opts;
+  if (!q.trim()) return { hits: [], excluded: [] };
+  const { limit = 20, folder, includeArchive = false, includeInvalid = false, snippets = true } = opts;
+  const now = Date.now();
+  const EXCLUDE_CAP = 10;
 
   const raw = s.search.search(q, {
-    boostDocument: (_id, _term, stored) => weightOf((stored?.authority as Authority) ?? "current"),
+    // Effective weight: overlay validity onto the stored authority so an expired/superseded note
+    // is demoted at query time — no re-index needed (the index-time authority is frozen).
+    boostDocument: (_id, _term, stored) => {
+      const d = stored as { authority?: Authority; validUntil?: number | null; supersededBy?: string | null } | undefined;
+      const eff = overlayValidity((d?.authority as Authority) ?? "current", d?.validUntil, d?.supersededBy, now);
+      return weightOf(eff.authority);
+    },
+    // Folder is the only hard filter here; archived/superseded/expired flow through so they can be
+    // partitioned into `excluded` with a reason rather than silently dropped.
     filter: (r) => {
-      const stored = r as unknown as { folder: string; authority: Authority };
-      if (!includeArchive && stored.authority === "archived") return false;
-      if (folder && stored.folder !== folder) return false;
-      return true;
+      const stored = r as unknown as { folder: string };
+      return !folder || stored.folder === folder;
     },
   });
 
-  const terms = q
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.replace(/[^a-z0-9-]/g, ""))
-    .filter((t) => t.length >= 3);
+  const hits: SearchHit[] = [];
+  const excluded: SearchExclusion[] = [];
 
-  return raw.slice(0, limit).map((r) => {
-    const hit = r as unknown as {
-      id: string;
-      title: string;
-      folder: string;
-      type?: string;
-      status?: string;
-      authority: Authority;
-      score: number;
-    };
-    return {
-      path: hit.id,
-      title: hit.title,
-      folder: hit.folder,
-      type: hit.type || undefined,
-      status: hit.status || undefined,
-      authority: hit.authority,
-      score: hit.score,
-      snippet: snippets ? snippetFor(s.dir, hit.id, terms) : undefined,
-    };
-  });
+  for (const r of raw) {
+    if (hits.length >= limit && excluded.length >= EXCLUDE_CAP) break;
+    const d = r as unknown as StoredDoc;
+    const eff = overlayValidity(d.authority, d.validUntil, d.supersededBy, now);
+    const isArchived = eff.authority === "archived";
+    const withhold = isArchived ? !includeArchive : eff.retired && !includeInvalid;
+
+    if (withhold) {
+      if (excluded.length < EXCLUDE_CAP) {
+        excluded.push({ path: d.id, title: d.title, folder: d.folder, authority: eff.authority, reason: eff.reason ?? "retired" });
+      }
+      continue;
+    }
+    if (hits.length < limit) {
+      hits.push({
+        path: d.id,
+        title: d.title,
+        folder: d.folder,
+        type: d.type || undefined,
+        status: d.status || undefined,
+        authority: eff.authority,
+        score: d.score,
+        reason: eff.retired ? eff.reason : undefined,
+      });
+    }
+  }
+
+  if (snippets && hits.length > 0) {
+    const terms = q
+      .toLowerCase()
+      .split(/\s+/)
+      .map((t) => t.replace(/[^a-z0-9-]/g, ""))
+      .filter((t) => t.length >= 3);
+    for (const h of hits) h.snippet = snippetFor(s.dir, h.path, terms);
+  }
+
+  return { hits, excluded };
 }
 
 export function getBacklinks(relPath: string): NoteMeta[] {
@@ -405,6 +465,9 @@ export function vaultConventions() {
   const types = new Set<string>();
   const malformed: Array<{ path: string; error: string }> = [];
   let archived = 0;
+  let superseded = 0;
+  let expired = 0;
+  const now = Date.now();
 
   for (const n of s.notes.values()) {
     folders.add(n.folder);
@@ -412,11 +475,15 @@ export function vaultConventions() {
     if (n.status) statuses.set(n.status, (statuses.get(n.status) ?? 0) + 1);
     if (isArchivedPath(n.path)) archived++;
     if (n.frontmatterError) malformed.push({ path: n.path, error: n.frontmatterError });
+    if (n.supersededBy) superseded++;
+    else if (n.validUntil != null && n.validUntil < now) expired++;
   }
 
   return {
     noteCount: s.notes.size,
     archivedCount: archived,
+    supersededCount: superseded,
+    expiredCount: expired,
     folders: [...folders].sort(),
     types: [...types].sort(),
     statusesInUse: [...statuses.entries()]

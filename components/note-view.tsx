@@ -39,7 +39,7 @@ function Editor({ value, onChange }: { value: string; onChange: (v: string) => v
       value={value}
       onChange={(e) => onChange(e.target.value)}
       spellCheck={false}
-      className="scrollbar-none h-full w-full resize-none bg-background px-6 py-6 font-mono text-[13px] leading-relaxed text-foreground outline-none"
+      className="scrollbar-none h-full w-full resize-none bg-background px-4 py-4 font-mono text-[13px] leading-relaxed text-foreground outline-none sm:px-6 sm:py-6"
     />
   );
 }
@@ -154,9 +154,9 @@ export function NoteView({ path }: { path: string }) {
         {mode === "edit" && <Editor value={raw} onChange={onEdit} />}
 
         {mode === "split" && (
-          <div className="grid h-full grid-cols-2 divide-x divide-border">
+          <div className="grid h-full grid-cols-1 grid-rows-2 divide-y divide-border md:grid-cols-2 md:grid-rows-1 md:divide-x md:divide-y-0">
             <Editor value={raw} onChange={onEdit} />
-            <div className="scrollbar-none overflow-y-auto px-6 py-6">
+            <div className="scrollbar-none overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
               <Markdown content={previewBody} resolve={resolve} />
             </div>
           </div>
@@ -164,7 +164,7 @@ export function NoteView({ path }: { path: string }) {
 
         {mode === "preview" && (
           <div className="scrollbar-none h-full overflow-y-auto">
-            <article className="mx-auto max-w-5xl px-8 py-10">
+            <article className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
               <header className="mb-7">
                 <h1 className="text-2xl font-semibold tracking-tight">{note.title}</h1>
                 {(note.tags.length > 0 || note.status || note.type) && (

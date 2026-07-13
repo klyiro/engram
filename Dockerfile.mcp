@@ -11,6 +11,10 @@
 
 FROM oven/bun:1
 
+# Ownership proof for the official MCP registry: the registry reads this label from the
+# image manifest and rejects the publish unless it matches the `name` in server.json.
+LABEL io.modelcontextprotocol.server.name="io.github.rwnalds/engram"
+
 WORKDIR /app
 
 # git + certs: only used if you point it at a git-backed vault; harmless otherwise.

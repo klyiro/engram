@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.rwnalds/engram",
+  "title": "Engram",
+  "description": "Git-backed markdown memory for AI agents; search hides superseded and archived notes.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/rwnalds/engram",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/rwnalds/engram",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/rwnalds/engram",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--mount",
+          "value": "type=bind,src={vault_path},dst=/vault",
+          "description": "Mount your local markdown vault into the container",
+          "isRequired": true,
+          "variables": {
+            "vault_path": {
+              "description": "Absolute path to your local markdown vault (Obsidian-compatible)",
+              "format": "filepath",
+              "isRequired": true
+            }
+          }
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "valueHint": "vault_dir",
+          "value": "/vault"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+[test]
+# Pins VAULT_DIR/ENGRAM_DATA_DIR before any module imports lib/config.ts, which reads them at
+# import time. Without this the suite passes or fails depending on test-file order.
+preload = ["./test/setup.ts"]

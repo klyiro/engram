@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Preloaded before any test module (see bunfig.toml).
@@ -11,7 +12,9 @@ import path from "node:path";
  * module loads, makes the whole suite deterministic regardless of order.
  */
 
-const root = path.resolve(import.meta.dir, "..");
+// Standard ESM rather than Bun's `import.meta.dir`: `next build` type-checks this file with tsc,
+// which doesn't know Bun's extensions.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const TEST_VAULT = path.join(root, ".test-vault");
 export const TEST_DATA = path.join(root, ".test-data");
 

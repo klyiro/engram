@@ -34,7 +34,7 @@ recent notes, and curate it all — while agents read and write the same vault o
 database: your `.md` files are the source of truth, git is the durable store, and an in-memory index
 powers full-text search + a wikilink **knowledge graph**.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/mqGAtf?referralCode=PEidIe&utm_medium=integration&utm_source=template&utm_campaign=generic)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/engram?referralCode=PEidIe&utm_medium=integration&utm_source=template&utm_campaign=generic)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/rwnalds/engram)
 
 [![CI](https://github.com/rwnalds/engram/actions/workflows/ci.yml/badge.svg)](https://github.com/rwnalds/engram/actions/workflows/ci.yml)

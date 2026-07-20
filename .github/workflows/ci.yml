@@ -31,6 +31,11 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # Covers the ranking/authority math the product's central claim rests on:
+      # a retired fact must stop surfacing. See lib/vault/stale-truth.test.ts.
+      - name: Test
+        run: bun test
+
       # `next build` type-checks (tsc) and compiles every route — the real gate.
       - name: Build
         run: bun run build

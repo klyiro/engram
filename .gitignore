@@ -15,6 +15,9 @@ next-env.d.ts
 .engram/
 **/.engram/
 .engram-data/
+# scratch vault + app state built by `bun test` (see test/setup.ts)
+.test-vault/
+.test-data/
 sample-vault/.gitignore
 # local working notes (not part of the OSS repo)
 HANDOFF.md

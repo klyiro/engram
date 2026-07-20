@@ -31,6 +31,7 @@
     "build": "next build",
     "start": "next start",
     "mcp:stdio": "bun scripts/mcp-stdio.ts",
+    "test": "bun test",
     "lint": "eslint",
     "gen:secrets": "tsx scripts/gen-secrets.ts"
   },

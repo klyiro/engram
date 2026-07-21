@@ -7,8 +7,8 @@
 FROM ghcr.io/rwnalds/engram-app:0.1.2
 
 # git is already present in the base image (used for the vault sync loop); the seed script needs it.
-COPY demo/seed.sh /demo/seed.sh
-COPY demo/entrypoint.sh /demo/entrypoint.sh
+# Both scripts copied in one instruction — one context resolution, one layer.
+COPY demo/seed.sh demo/entrypoint.sh /demo/
 RUN chmod +x /demo/seed.sh /demo/entrypoint.sh
 
 # No volume, no persisted state — the vault lives inside the container and dies with it.
